@@ -1,0 +1,136 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // --- GLOBAL HELPERS ---
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Check if the job exists and is completed
+    function isJobCompleted(jobId) {
+      return exists(/databases/$(database)/documents/jobs/$(jobId)) &&
+             get(/databases/$(database)/documents/jobs/$(jobId)).data.status == 'completed';
+    }
+    
+    // Check if user is a professional (has a professionals doc)
+    function isProfessional() {
+      return exists(/databases/$(database)/documents/professionals/$(request.auth.uid));
+    }
+    
+    // --- 1. USER & CUSTOMER PROFILES ---
+    match /users/{userId} {
+      allow read: if isOwner(userId);  // FIXED: Only owner can read their own document
+      allow create: if isOwner(userId);
+      
+      // Allow owner to update their document, but prevent role changes
+      allow update: if isOwner(userId) && 
+        (resource.data.role == request.resource.data.role || !('role' in request.resource.data));
+        
+      allow delete: if false;
+    }
+    
+    // Customers collection: For non-professional users
+    match /customers/{userId} {
+      allow read, create, update: if isOwner(userId);
+      allow delete: if false;
+    }
+    
+    // --- 2. PROFESSIONAL PROFILES ---
+    // Professionals collection: Extended profile for pros (e.g., verification, clearance)
+    match /professionals/{userId} {
+      // Auth'd users can read any pro profile (for browsing)
+      allow read: if isAuthenticated();
+      // Allow creation on signup (sets initial shell)
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Owner can update (e.g., verification docs, profile info)
+      allow update: if isOwner(userId) &&
+        // Optional: Restrict verification status changes if admin-only
+        (!('isVerified' in request.resource.data) || request.resource.data.isVerified == false);
+      allow delete: if false;
+    }
+    
+    // --- 3. JOBS SYSTEM ---
+    // Jobs collection: Job postings and management
+    match /jobs/{jobId} {
+      // Auth'd users can read any job (public browsing)
+      allow read: if isAuthenticated();
+      // Any auth'd user can create (customers post jobs)
+      allow create: if isAuthenticated();
+      // Updates by owner (customer) or accepted professional
+      allow update: if isAuthenticated() &&
+        (resource.data.customerId == request.auth.uid ||
+         (resource.data.professionalId == request.auth.uid && resource.data.status != 'completed'));
+      allow delete: if isAuthenticated() && resource.data.customerId == request.auth.uid;
+      
+      // Subcollection: Bids on jobs (only pros can bid)
+      match /bids/{bidId} {
+        allow read: if isAuthenticated();  // Anyone can see bids on a job
+        allow create: if isAuthenticated() && isProfessional() &&
+          // Ensure bid links to existing job
+          exists(/databases/$(database)/documents/jobs/$(jobId));
+        allow update, delete: if isAuthenticated() && resource.data.professionalId == request.auth.uid;
+      }
+    }
+    
+    // --- 4. REVIEWS ---
+    // Reviews collection: Post-job feedback
+    match /reviews/{reviewId} {
+      // Public read (for profiles/ratings)
+      allow read: if true;
+      // Create only after job completion, by customer
+      allow create: if isAuthenticated() &&
+        isJobCompleted(request.resource.data.jobId) &&
+        request.resource.data.customerId == request.auth.uid &&
+        request.resource.data.professionalId != null &&
+        // Basic validation: rating 1-5
+        (request.resource.data.rating >= 1 && request.resource.data.rating <= 5);
+      // No updates/deletes (immutable reviews)
+      allow update, delete: if false;
+    }
+    
+    // --- 5. BOOKINGS ---
+    // Bookings collection: Confirmed job bookings
+    match /bookings/{bookingId} {
+      // Read access for involved parties only
+      allow read: if isAuthenticated() &&
+        (resource.data.customerId == request.auth.uid ||
+         resource.data.professionalId == request.auth.uid);
+      // Write access for involved parties (e.g., status updates)
+      allow create, update: if isAuthenticated() &&
+        (request.resource.data.customerId == request.auth.uid ||
+         request.resource.data.professionalId == request.auth.uid) &&
+        // Ensure booking links to a real job
+        exists(/databases/$(database)/documents/jobs/$(request.resource.data.jobId));
+      allow delete: if false;  // Or allow mutual delete if needed
+    }
+    
+    // --- 6. SERVICES ---
+    // Services collection: Catalog of available services (static-ish)
+    match /services/{serviceId} {
+      // Public read for all auth'd users (pros/customers browse)
+      allow read: if isAuthenticated();
+      // Admins or system can create/update (not in your current code, but future-proof)
+      allow write: if false;  // Lock for now; adjust if you add admin roles
+    }
+    
+    // --- 7. VERIFICATION DOCS (Optional Subcollection) ---
+    // If you store uploads under professionals/{userId}/verifications/{docId}
+    match /professionals/{userId} {
+      match /verifications/{docId} {
+        allow read: if isAuthenticated();  // Or restrict to owner/admin
+        allow create, update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+    }
+    
+    // --- 8. GENERAL: Deny all else ---
+    // Catch-all to prevent unauthorized access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
