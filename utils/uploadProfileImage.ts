@@ -10,7 +10,7 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
  */
 export async function uploadProfileImage(
   uri: string,
-  uid: string
+  uid: string,
 ): Promise<string> {
   try {
     if (!uri) {

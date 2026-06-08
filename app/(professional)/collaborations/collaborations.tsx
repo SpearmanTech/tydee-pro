@@ -98,27 +98,35 @@ export default function SquadLeadDashboard() {
               key={job.id}
               entering={FadeInRight.delay(200 + index * 100)}
             >
-              <TouchableOpacity style={styles.jobCard}>
-                <View style={styles.jobInfo}>
-                  <View style={styles.jobIconContainer}>
-                    <ClipboardList color="#6366f1" size={22} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.jobTitle}>{job.title}</Text>
-                    <View style={styles.jobMeta}>
-                      <Text style={styles.jobStatus}>{job.status}</Text>
-                      <Text style={styles.dot}>•</Text>
-                      <Text style={styles.jobSquad}>
-                        {job.squadSize} Pros Needed
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.priceTag}>
-                  <Text style={styles.priceText}>{job.offer}</Text>
-                </View>
-                <ChevronRight size={20} color="#cbd5e1" />
-              </TouchableOpacity>
+             <TouchableOpacity 
+  key={job.id} 
+  style={styles.jobCard}
+  activeOpacity={0.7}
+  onPress={() => router.push({
+    pathname: "/collaborations/squad-job-details",
+    params: { jobId: job.id }
+  })}
+>
+  <View style={styles.jobInfo}>
+    <View style={styles.jobIconContainer}>
+      <ClipboardList color="#6366f1" size={22} />
+    </View>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.jobTitle}>{job.title}</Text>
+      <View style={styles.jobMeta}>
+        <Text style={styles.jobStatus}>{job.status}</Text>
+        <Text style={styles.dot}>•</Text>
+        <Text style={styles.jobSquad}>
+          {job.squadSize} Pros Needed
+        </Text>
+      </View>
+    </View>
+  </View>
+  <View style={styles.priceTag}>
+    <Text style={styles.priceText}>{job.offer}</Text>
+  </View>
+  <ChevronRight size={20} color="#cbd5e1" />
+</TouchableOpacity>
             </Animated.View>
           ))
         ) : (

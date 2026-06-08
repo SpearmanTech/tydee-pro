@@ -34,7 +34,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await signIn(email.trim(), password);
-      router.replace("/(professional)");
+      router.replace("/(professional)/dashboard");
     } catch (error: any) {
       console.error("Login Error:", error.code);
       let errorMessage = "An error occurred during sign in.";
@@ -93,26 +93,35 @@ export default function LoginScreen() {
               />
             </View>
 
-            <TouchableOpacity 
-              style={[styles.primaryButton, loading && styles.buttonDisabled]} 
-              onPress={handleSignIn}
-              disabled={loading}
-            >
-              <LinearGradient
-                colors={['#1e293b', '#0f172a']}
-                style={styles.buttonGradient}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <Text style={styles.buttonText}>Sign In</Text>
-                    <ChevronRight size={18} color="#fff" />
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+           <TouchableOpacity 
+  style={[styles.primaryButton, loading && styles.buttonDisabled]} 
+  onPress={handleSignIn}
+  disabled={loading}
+>
+  <LinearGradient
+    colors={['#1e293b', '#0f172a']}
+    style={styles.buttonGradient}
+  >
+    {loading ? (
+      <ActivityIndicator color="#fff" />
+    ) : (
+      <>
+        <Text style={styles.buttonText}>Sign In</Text>
+        <ChevronRight size={18} color="#fff" />
+      </>
+    )}
+  </LinearGradient>
+</TouchableOpacity>
 
+{/* Forgot Password Link */}
+<TouchableOpacity 
+  onPress={() => router.push("/(auth)/forgot-password")}
+  style={styles.forgotPasswordContainer}
+  activeOpacity={0.7}
+>
+  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+</TouchableOpacity>
+        
             {/* DIVIDER */}
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
@@ -246,5 +255,15 @@ const styles = StyleSheet.create({
   
   footerLink: { marginTop: 32 },
   linkText: { textAlign: "center", color: "#64748b", fontSize: 14, fontWeight: "500" },
-  linkTextBold: { color: "#6366f1", fontWeight: "700" }
+  linkTextBold: { color: "#6366f1", fontWeight: "700" },
+
+  forgotPasswordContainer: {
+    marginTop: 16,
+    alignItems: "center",
+  },
+  forgotPasswordText: {
+    color: "#64748b",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });

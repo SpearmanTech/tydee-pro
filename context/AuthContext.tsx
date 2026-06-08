@@ -1,18 +1,24 @@
 "use client";
-import React, { createContext, useContext, useEffect, useState, useRef } from "react";
-import { 
-  onAuthStateChanged, 
-  User, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword,
-  signInWithPhoneNumber,
-  RecaptchaVerifier,
-  ConfirmationResult,
-  sendEmailVerification,
-  signOut as firebaseSignOut 
-} from "firebase/auth";
-import { doc, setDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 import { auth, db } from "@/firebase/firebase";
+import {
+  ConfirmationResult,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  RecaptchaVerifier,
+  sendEmailVerification,
+  signInWithEmailAndPassword,
+  signInWithPhoneNumber,
+  User,
+} from "firebase/auth";
+import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 type AuthContextType = {
   user: User | null;
@@ -21,8 +27,14 @@ type AuthContextType = {
   setIsOnboarded: (val: boolean) => void;
   signIn: (email: string, pass: string) => Promise<void>;
   signUp: (email: string, pass: string) => Promise<void>;
-  signInWithPhone: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<ConfirmationResult>;
-  signUpWithPhone: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<ConfirmationResult>;
+  signInWithPhone: (
+    phoneNumber: string,
+    recaptchaVerifier: RecaptchaVerifier,
+  ) => Promise<ConfirmationResult>;
+  signUpWithPhone: (
+    phoneNumber: string,
+    recaptchaVerifier: RecaptchaVerifier,
+  ) => Promise<ConfirmationResult>;
   sendEmailVerificationLink: () => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -41,13 +53,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (fbUser) {
         // We listen to the "users" collection, which is only populated AFTER email verification.
         const userRef = doc(db, "users", fbUser.uid);
-        
-        const unsubDoc = onSnapshot(userRef, 
+
+        const unsubDoc = onSnapshot(
+          userRef,
           (snap) => {
             if (snap.exists()) {
               const userData = snap.data();
-              const firestoreOnboarded = userData.hasCompletedOnboarding === true;
-              
+              const firestoreOnboarded =
+                userData.hasCompletedOnboarding === true;
+
               // Handle optimistic UI logic
               if (optimisticOnboarded.current !== null) {
                 if (firestoreOnboarded === true) {
@@ -68,10 +82,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
           (error) => {
             // Silencing permission errors during the provisional phase
-            console.log("Auth listener: User profile not yet available or accessible.");
+            console.log(
+              "Auth listener: User profile not yet available or accessible.",
+            );
             setUser(fbUser);
             setLoading(false);
-          }
+          },
         );
         return () => unsubDoc();
       } else {
@@ -90,10 +106,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, pass: string) => {
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    
+
     // 1. Trigger email verification immediately
     await sendEmailVerification(cred.user);
-    
+
     // 2. PROVISIONAL SHELL: Created in a buffer collection
     // This avoids "Permission Denied" errors on the main user listener.
     await setDoc(doc(db, "provisional_signups", cred.user.uid), {
@@ -103,19 +119,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       status: "pending_verification",
       createdAt: serverTimestamp(),
       // TTL: Auto-delete after 48 hours if never verified
-      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000) 
+      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
     });
 
-    setIsOnboarded(false); 
+    setIsOnboarded(false);
     optimisticOnboarded.current = null;
     setUser(cred.user);
   };
 
-  const signInWithPhone = async (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => {
+  const signInWithPhone = async (
+    phoneNumber: string,
+    recaptchaVerifier: RecaptchaVerifier,
+  ) => {
     return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
   };
 
-  const signUpWithPhone = async (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => {
+  const signUpWithPhone = async (
+    phoneNumber: string,
+    recaptchaVerifier: RecaptchaVerifier,
+  ) => {
     return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
   };
 
@@ -137,18 +159,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      isOnboarded,
-      setIsOnboarded: handleSetIsOnboarded,
-      signIn,
-      signUp,
-      signInWithPhone,
-      signUpWithPhone,
-      sendEmailVerificationLink,
-      signOut
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        isOnboarded,
+        setIsOnboarded: handleSetIsOnboarded,
+        signIn,
+        signUp,
+        signInWithPhone,
+        signUpWithPhone,
+        sendEmailVerificationLink,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

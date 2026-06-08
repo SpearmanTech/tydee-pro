@@ -1,18 +1,26 @@
-import { initializeApp } from "firebase-admin/app";
-initializeApp();
+import * as admin from "firebase-admin";
 
-// 1. Marketplace Functions
+// Initialize the Admin SDK once at the root
+if (admin.apps.length === 0) {
+  admin.initializeApp();
+}
+
+// 1. Marketplace & Jobs
 export { submitBid, getAvailableJobs } from "./marketplace";
-
-// 2. Job Management (Double-check these file names match your src/jobs folder)
 export { createJob as activeJobs } from "./jobs/activejobs"; 
 export { createJob } from "./jobs/createJob";
 export { acceptBid } from "./jobs/acceptbids"; 
 export { expireJobs } from "./jobs/expirejobs";
 
-// 3. Services (Crucial for the app's UI)
-export { getServices } from "./services/getServices";
-//export { presence } from "./services/presence";
+// 2. Equipment Rental Lifecycle
+export { createRental } from "./equipment/createRentals";
+export { verifyHandover } from "./equipment/verifyHandover";
+export { processReturn } from "./equipment/return"; 
 
-// 4. Professional Functions
+// 3. Payment Management (Standardized Imports)
+export { removeProfessionalCard } from "./payments/removeCard";
+export { verifyAndSaveProfessionalCard } from "./payments/verifyAndSaveProfessionalCard";
+
+// 4. Services & Dashboard
+export { getServices } from "./services/getServices";
 export { getProfessionalDashboard } from "./professionals/getProfessionalDashboard";

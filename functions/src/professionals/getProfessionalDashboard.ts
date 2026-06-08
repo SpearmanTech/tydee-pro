@@ -1,6 +1,5 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
-import {Request, Response} from "express";
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -9,13 +8,15 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 export const getProfessionalDashboard = onRequest(
-  {region: "us-central1"},
-  async (req: Request, res: Response) => {
+  { region: "us-central1" },
+  async (req, res) => { // Removed : Request and : Response
     try {
-      const {uid} = req.body as { uid?: string };
+      // Accessing body safely for TS
+      const body = req.body as { uid?: string };
+      const uid = body.uid;
 
       if (!uid) {
-        res.status(400).json({error: "Missing uid"});
+        res.status(400).json({ error: "Missing uid" });
         return;
       }
 
@@ -23,7 +24,7 @@ export const getProfessionalDashboard = onRequest(
       const userSnap = await db.collection("professionals").doc(uid).get();
 
       if (!userSnap.exists) {
-        res.status(404).json({error: "User profile not found"});
+        res.status(404).json({ error: "User profile not found" });
         return;
       }
 
@@ -32,7 +33,6 @@ export const getProfessionalDashboard = onRequest(
         ...userSnap.data(),
       };
 
-      // 2. Fetch jobs
       // 2. Fetch jobs
       const jobsSnap = await db
         .collection("jobs")
@@ -69,7 +69,7 @@ export const getProfessionalDashboard = onRequest(
       });
     } catch (error) {
       console.error("Dashboard error:", error);
-      res.status(500).json({error: "Internal server error"});
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 );

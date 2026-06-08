@@ -1,11 +1,17 @@
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import * as admin from "firebase-admin";
 
-exports.syncCustomerPinToJobs = functions.firestore
-  .document('customers/{customerId}')
-  .onUpdate(async (change, context) => {
+export const syncCustomerPinToJobs = onDocumentUpdated(
+  'customers/{customerId}', 
+  async (event) => {
+    // In v2, 'change' is inside the 'event' object
+    const change = event.data;
+    if (!change) return null;
+
     const newData = change.after.data();
     const oldData = change.before.data();
+
+    if (!newData || !oldData) return null;
 
     const newPin = newData.permanentPin || newData.startPin;
     const oldPin = oldData.permanentPin || oldData.startPin;
@@ -13,19 +19,24 @@ exports.syncCustomerPinToJobs = functions.firestore
     // Only run if the PIN actually changed
     if (newPin === oldPin) return null;
 
-    const customerId = context.params.customerId;
-    const jobsRef = admin.firestore().collection('jobs');
+    // In v2, params are in event.params
+    const customerId = event.params.customerId;
+    const db = admin.firestore();
 
     // Find all active jobs for this customer
-    const activeJobsQuery = await jobsRef
+    const activeJobsQuery = await db.collection('jobs')
       .where('customerId', '==', customerId)
       .where('status', 'in', ['pending', 'open', 'assigned'])
       .get();
 
-    const batch = admin.firestore().batch();
-    activeJobsQuery.forEach(doc => {
+    if (activeJobsQuery.empty) return null;
+
+    const batch = db.batch();
+    
+    activeJobsQuery.forEach((doc) => {
       batch.update(doc.ref, { startPin: String(newPin) });
     });
 
     return batch.commit();
-  });
+  }
+);

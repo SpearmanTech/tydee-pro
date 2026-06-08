@@ -1,7 +1,23 @@
 import { auth, db } from "@/firebase/firebase";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { signOut } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
+import {
+  Briefcase,
+  ChevronRight,
+  LogOut,
+  MapPin,
+  Phone,
+  Settings,
+  ShieldCheck,
+  Package, // Added for Equipment
+  LayoutDashboard, // Added for Management
+  User,
+  CreditCard,
+  Users,
+  X,
+} from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -15,19 +31,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { LinearGradient } from 'expo-linear-gradient';
-import {
-  Briefcase,
-  ChevronRight,
-  LogOut,
-  MapPin,
-  ShieldCheck,
-  User,
-  Users,
-  X,
-  Phone,
-  Settings,
-} from "lucide-react-native";
 
 type Props = {
   visible: boolean;
@@ -56,7 +59,8 @@ export default function ProfileSettingsDrawer({ visible, onClose }: Props) {
       if (snap.exists()) {
         const data = snap.data();
         setProfileData({
-          name: data.name || data.displayName || data.businessName || "Tydee Pro",
+          name:
+            data.name || data.displayName || data.businessName || "Tydee Pro",
           phone: data.phoneNumber || "No phone added",
           profileImage: data.profileImage || null,
           services: data.services || [],
@@ -108,7 +112,11 @@ export default function ProfileSettingsDrawer({ visible, onClose }: Props) {
   return (
     <Modal visible={visible} transparent animationType="none">
       <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
-        <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
+        <TouchableOpacity
+          style={{ flex: 1 }}
+          onPress={onClose}
+          activeOpacity={1}
+        />
       </Animated.View>
 
       <Animated.View
@@ -125,24 +133,41 @@ export default function ProfileSettingsDrawer({ visible, onClose }: Props) {
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
           {/* PROFILE CARD - PREMIUM HERO */}
           <Pressable
             style={styles.profileCard}
-            onPress={() => { onClose(); router.push("/(professional)/ProfileDetails"); }}
+            onPress={() => {
+              onClose();
+              router.push("/(professional)/ProfileDetails");
+            }}
           >
-            <LinearGradient colors={['#f8fafc', '#f1f5f9']} style={styles.profileGradient}>
+            <LinearGradient
+              colors={["#f8fafc", "#f1f5f9"]}
+              style={styles.profileGradient}
+            >
               <View style={styles.avatarContainer}>
                 {profileData.profileImage ? (
-                  <Image source={{ uri: profileData.profileImage }} style={styles.avatar} />
+                  <Image
+                    source={{ uri: profileData.profileImage }}
+                    style={styles.avatar}
+                  />
                 ) : (
-                  <View style={styles.avatarPlaceholder}><User width={32} height={32} color="#94a3b8" /></View>
+                  <View style={styles.avatarPlaceholder}>
+                    <User width={32} height={32} color="#94a3b8" />
+                  </View>
                 )}
-                <View style={styles.editBadge}><Settings width={10} height={10} color="#fff" /></View>
+                <View style={styles.editBadge}>
+                  <Settings width={10} height={10} color="#fff" />
+                </View>
               </View>
               <View style={styles.profileTextInfo}>
-                <Text style={styles.proName} numberOfLines={1}>{profileData.name}</Text>
+                <Text style={styles.proName} numberOfLines={1}>
+                  {profileData.name}
+                </Text>
                 <View style={styles.phoneRow}>
                   <Phone width={12} height={12} color="#64748b" />
                   <Text style={styles.proPhone}>{profileData.phone}</Text>
@@ -154,20 +179,32 @@ export default function ProfileSettingsDrawer({ visible, onClose }: Props) {
 
           {/* VERIFICATION SECTION */}
           <Text style={styles.sectionLabel}>TRUST & STATUS</Text>
-          <Pressable style={styles.card} onPress={() => { onClose(); router.push("/(professional)/Verification"); }}>
+          <Pressable
+            style={styles.card}
+            onPress={() => {
+              onClose();
+              router.push("/(professional)/Verification");
+            }}
+          >
             <View style={styles.cardHeader}>
               <ShieldCheck width={18} height={18} color="#10b981" />
               <Text style={styles.cardTitle}>Identity & Safety</Text>
             </View>
             <View style={styles.statusRow}>
               <Text style={styles.statusLabel}>ID Verification</Text>
-              <Text style={profileData.isVerified ? styles.verified : styles.pending}>
+              <Text
+                style={
+                  profileData.isVerified ? styles.verified : styles.pending
+                }
+              >
                 {profileData.isVerified ? "Verified" : "Pending"}
               </Text>
             </View>
             <View style={styles.statusRow}>
               <Text style={styles.statusLabel}>Background Check</Text>
-              <Text style={profileData.isCleared ? styles.verified : styles.pending}>
+              <Text
+                style={profileData.isCleared ? styles.verified : styles.pending}
+              >
                 {profileData.isCleared ? "Cleared" : "Pending"}
               </Text>
             </View>
@@ -175,7 +212,13 @@ export default function ProfileSettingsDrawer({ visible, onClose }: Props) {
 
           {/* SERVICES SECTION */}
           <Text style={styles.sectionLabel}>WORK PREFERENCES</Text>
-          <Pressable style={styles.card} onPress={() => { onClose(); router.push("/(professional)/ServicesAndLocation"); }}>
+          <Pressable
+            style={styles.card}
+            onPress={() => {
+              onClose();
+              router.push("/(professional)/ServicesAndLocation");
+            }}
+          >
             <View style={styles.cardHeader}>
               <Briefcase width={18} height={18} color="#6366f1" />
               <Text style={styles.cardTitle}>Expertise</Text>
@@ -193,26 +236,92 @@ export default function ProfileSettingsDrawer({ visible, onClose }: Props) {
             </View>
           </Pressable>
 
-          <Pressable style={styles.card} onPress={() => { onClose(); router.push("/(professional)/ServicesAndLocation"); }}>
+          <Pressable
+            style={styles.card}
+            onPress={() => {
+              onClose();
+              router.push("/(professional)/ServicesAndLocation");
+            }}
+          >
             <View style={styles.cardHeader}>
               <MapPin width={18} height={18} color="#f59e0b" />
               <Text style={styles.cardTitle}>Service Area</Text>
             </View>
-            <Text style={styles.locationText}>South Africa (Local & Surrounds)</Text>
+            <Text style={styles.locationText}>
+              South Africa (Local & Surrounds)
+            </Text>
           </Pressable>
 
-          {/* ACTIONS */}
+          {/* FINANCIAL & PAYMENTS */}
+<Text style={styles.sectionLabel}>FINANCIAL</Text>
+
+<TouchableOpacity 
+  style={styles.card} 
+  onPress={() => {
+    onClose();
+    router.push("/(professional)/wallet"); // Adjust this path to where you saved the dashboard
+  }}
+>
+  <View style={styles.cardHeader}>
+    <CreditCard width={18} height={18} color="#6366f1" />
+    <Text style={styles.cardTitle}>Payments & Wallet</Text>
+  </View>
+  <View style={styles.statusRow}>
+    <Text style={styles.statusLabel}>Manage cards & payouts</Text>
+    <ChevronRight width={16} height={16} color="#cbd5e1" />
+  </View>
+</TouchableOpacity>
+          
+          {/* EQUIPMENT HUB SECTION */}
+          <Text style={styles.sectionLabel}>RESOURCES & GEAR</Text>
+          
+          <TouchableOpacity 
+            style={styles.card} 
+            onPress={() => {
+              onClose();
+              router.push("/(professional)/Equipment");
+            }}
+          >
+            <View style={styles.cardHeader}>
+              <Package width={18} height={18} color="#6366f1" />
+              <Text style={styles.cardTitle}>Rent Equipment</Text>
+            </View>
+            <Text style={styles.locationText}>
+              Find tools and machinery for your next job site.
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.card} 
+            onPress={() => {
+              onClose();
+              router.push("/(professional)/Equipment/rental-management"); // Points to the Dashboard we just made
+            }}
+          >
+            <View style={styles.cardHeader}>
+              <LayoutDashboard width={18} height={18} color="#10b981" />
+              <Text style={styles.cardTitle}>Manage My Rentals</Text>
+            </View>
+            <View style={styles.statusRow}>
+               <Text style={styles.statusLabel}>Active Gear</Text>
+               <Text style={styles.verified}>View Fleet</Text>
+            </View>
+          </TouchableOpacity>
+
+              {/* ACTIONS */}
           <Text style={styles.sectionLabel}>SYSTEM</Text>
           <TouchableOpacity style={styles.actionRow} onPress={handleSwitchUser}>
             <Users width={18} height={18} color="#64748b" />
             <Text style={styles.actionText}>Switch Account</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionRow, styles.dangerBg]} onPress={handleSignOut}>
+          <TouchableOpacity
+            style={[styles.actionRow, styles.dangerBg]}
+            onPress={handleSignOut}
+          >
             <LogOut width={18} height={18} color="#ef4444" />
             <Text style={styles.dangerText}>Sign Out</Text>
           </TouchableOpacity>
-
         </ScrollView>
       </Animated.View>
     </Modal>
@@ -250,39 +359,107 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 20,
   },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   headerTitle: { fontSize: 16, fontWeight: "800", color: "#1e293b" },
   closeBtn: { padding: 4 },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
-  sectionLabel: { fontSize: 10, fontWeight: "800", color: "#94a3b8", letterSpacing: 1.5, marginBottom: 12, marginTop: 10, marginLeft: 4 },
-  
-  profileCard: { borderRadius: 24, overflow: 'hidden', marginBottom: 20, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 },
-  profileGradient: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  avatarContainer: { position: 'relative' },
+  sectionLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#94a3b8",
+    letterSpacing: 1.5,
+    marginBottom: 12,
+    marginTop: 10,
+    marginLeft: 4,
+  },
+
+  profileCard: {
+    borderRadius: 24,
+    overflow: "hidden",
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+  },
+  profileGradient: { flexDirection: "row", alignItems: "center", padding: 16 },
+  avatarContainer: { position: "relative" },
   avatar: { width: 60, height: 60, borderRadius: 30 },
-  avatarPlaceholder: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' },
-  editBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#6366f1', width: 20, height: 20, borderRadius: 10, borderOuterWidth: 2, borderColor: '#fff', justifyContent: 'center', alignItems: 'center' },
+  avatarPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#e2e8f0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+ editBadge: {
+  position: "absolute",
+  bottom: 0,
+  right: 0,
+  backgroundColor: "#6366f1",
+  width: 20,
+  height: 20,
+  borderRadius: 10,
+  borderWidth: 2, // Changed from borderOuterWidth
+  borderColor: "#fff",
+  justifyContent: "center",
+  alignItems: "center",
+},
   profileTextInfo: { flex: 1, marginLeft: 16 },
   proName: { fontSize: 18, fontWeight: "800", color: "#1e293b" },
-  phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  phoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+  },
   proPhone: { fontSize: 12, color: "#64748b", fontWeight: "600" },
 
-  card: { backgroundColor: "#fff", borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#f1f5f9' },
-  cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 14, gap: 10 },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#f1f5f9",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14,
+    gap: 10,
+  },
   cardTitle: { fontSize: 14, fontWeight: "700", color: "#1e293b" },
-  statusRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
+  statusRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
   statusLabel: { fontSize: 13, color: "#64748b", fontWeight: "500" },
   verified: { color: "#10b981", fontWeight: "800", fontSize: 12 },
   pending: { color: "#f59e0b", fontWeight: "700", fontSize: 12 },
 
-  servicesList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  serviceTag: { backgroundColor: '#f5f3ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-  serviceTagText: { color: '#6366f1', fontSize: 11, fontWeight: '700' },
+  servicesList: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  serviceTag: {
+    backgroundColor: "#f5f3ff",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  serviceTagText: { color: "#6366f1", fontSize: 11, fontWeight: "700" },
   locationText: { fontSize: 13, color: "#475569", fontWeight: "500" },
   emptySub: { fontSize: 12, color: "#94a3b8", fontStyle: "italic" },
 
-  actionRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16, borderRadius: 16, marginBottom: 8 },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 8,
+  },
   actionText: { fontSize: 14, fontWeight: "700", color: "#475569" },
-  dangerBg: { backgroundColor: '#fef2f2' },
+  dangerBg: { backgroundColor: "#fef2f2" },
   dangerText: { fontSize: 14, fontWeight: "700", color: "#ef4444" },
 });

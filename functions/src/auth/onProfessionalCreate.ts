@@ -18,7 +18,7 @@ export const onProfessionalCreate = user().onCreate(
       isOnline: false,
       services: [],
       role: "professional",
-      isVerified: true,
+      isVerified: ,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });

@@ -1,10 +1,32 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
-import { useRouter } from "expo-router";
+import { auth, db } from "@/firebase/firebase";
 import { Ionicons } from "@expo/vector-icons";
-import { db, auth } from "@/firebase/firebase";
-import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
-import { Users, User, MapPin, Calendar, CreditCard, Clock, Star } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import {
+  collection,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+} from "firebase/firestore";
+import {
+  Calendar,
+  Clock,
+  CreditCard,
+  MapPin,
+  Star,
+  User,
+  Users,
+} from "lucide-react-native";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  Platform,
+  View,
+} from "react-native";
 
 type CompletedJob = {
   id: string;
@@ -32,14 +54,14 @@ export default function CompletedJobs() {
       collection(db, "jobs"),
       where("status", "in", ["completed", "Completed"]),
       where("bidders", "array-contains", user.uid),
-      orderBy("completedAt", "desc")
+      orderBy("completedAt", "desc"),
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
+      const data = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-        isCollab: doc.data().squadMembers && doc.data().squadMembers.length > 0
+        isCollab: doc.data().squadMembers && doc.data().squadMembers.length > 0,
       })) as CompletedJob[];
       setJobs(data);
       setLoading(false);
@@ -55,13 +77,21 @@ export default function CompletedJobs() {
       {/* SECTION 1: HEADER & STATUS */}
       <View style={styles.cardHeader}>
         <View style={item.isCollab ? styles.collabBadge : styles.soloBadge}>
-          {item.isCollab ? <Users size={12} color="#6366f1" /> : <User size={12} color="#059669" />}
+          {item.isCollab ? (
+            <Users size={12} color="#6366f1" />
+          ) : (
+            <User size={12} color="#059669" />
+          )}
           <Text style={item.isCollab ? styles.collabText : styles.soloText}>
             {item.isCollab ? "Squad Collab" : "Individual"}
           </Text>
         </View>
         <View style={styles.ratingRow}>
-          <Star size={14} color={item.rating ? "#f59e0b" : "#d1d5db"} fill={item.rating ? "#f59e0b" : "transparent"} />
+          <Star
+            size={14}
+            color={item.rating ? "#f59e0b" : "#d1d5db"}
+            fill={item.rating ? "#f59e0b" : "transparent"}
+          />
           <Text style={styles.ratingText}>{item.rating || "N/A"}</Text>
         </View>
       </View>
@@ -75,7 +105,9 @@ export default function CompletedJobs() {
         <View style={styles.infoItem}>
           <Calendar size={14} color="#6b7280" />
           <Text style={styles.infoText}>
-            {item.completedAt?.seconds ? new Date(item.completedAt.seconds * 1000).toLocaleDateString() : "N/A"}
+            {item.completedAt?.seconds
+              ? new Date(item.completedAt.seconds * 1000).toLocaleDateString()
+              : "N/A"}
           </Text>
         </View>
         <View style={styles.infoItem}>
@@ -86,7 +118,9 @@ export default function CompletedJobs() {
 
       <View style={styles.addressRow}>
         <MapPin size={14} color="#6b7280" />
-        <Text style={styles.addressText} numberOfLines={1}>{item.property_address}</Text>
+        <Text style={styles.addressText} numberOfLines={1}>
+          {item.property_address}
+        </Text>
       </View>
 
       {/* SECTION 4: FOOTER & PRICE */}
@@ -112,7 +146,11 @@ export default function CompletedJobs() {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#4f46e5" style={{ marginTop: 50 }} />
+        <ActivityIndicator
+          size="large"
+          color="#4f46e5"
+          style={{ marginTop: 50 }}
+        />
       ) : (
         <FlatList
           data={jobs}
@@ -123,7 +161,10 @@ export default function CompletedJobs() {
             <View style={styles.emptyContainer}>
               <Ionicons name="documents-outline" size={60} color="#d1d5db" />
               <Text style={styles.emptyTitle}>No completed jobs</Text>
-              <Text style={styles.emptySub}>Your work history will appear here once you finish your first task.</Text>
+              <Text style={styles.emptySub}>
+                Your work history will appear here once you finish your first
+                task.
+              </Text>
             </View>
           }
         />
@@ -158,9 +199,30 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
   },
-  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  soloBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#ecfdf5", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  collabBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#eef2ff", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  soloBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#ecfdf5",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  collabBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#eef2ff",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
   soloText: { fontSize: 10, fontWeight: "700", color: "#059669" },
   collabText: { fontSize: 10, fontWeight: "700", color: "#4338ca" },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 4 },
@@ -170,7 +232,12 @@ const styles = StyleSheet.create({
   infoGrid: { flexDirection: "row", gap: 20, marginVertical: 8 },
   infoItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   infoText: { fontSize: 12, color: "#6b7280" },
-  addressRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 },
+  addressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 12,
+  },
   addressText: { fontSize: 12, color: "#6b7280", flex: 1 },
   cardFooter: {
     flexDirection: "row",
@@ -185,6 +252,17 @@ const styles = StyleSheet.create({
   paymentText: { fontSize: 11, fontWeight: "700", color: "#059669" },
   priceText: { fontSize: 18, fontWeight: "800", color: "#111827" },
   emptyContainer: { alignItems: "center", marginTop: 100 },
-  emptyTitle: { fontSize: 18, fontWeight: "700", color: "#374151", marginTop: 16 },
-  emptySub: { fontSize: 14, color: "#6b7280", textAlign: "center", marginTop: 8, paddingHorizontal: 40 },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#374151",
+    marginTop: 16,
+  },
+  emptySub: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
+    marginTop: 8,
+    paddingHorizontal: 40,
+  },
 });

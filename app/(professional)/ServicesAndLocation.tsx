@@ -1,24 +1,25 @@
+import { auth, db } from "@/firebase/firebase";
+import * as Location from "expo-location";
+import { useRouter } from "expo-router";
+import {
+  collection,
+  doc,
+  getDocs,
+  onSnapshot,
+  updateDoc,
+} from "firebase/firestore";
+import { ArrowLeft, Briefcase, Check, MapPin } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Platform,
-  Alert,
   ActivityIndicator,
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { useRouter } from "expo-router";
-import * as Location from "expo-location";
-import { auth, db } from "@/firebase/firebase";
-import { doc, getDocs, collection, updateDoc, onSnapshot } from "firebase/firestore";
-import {
-  ArrowLeft,
-  MapPin,
-  Check,
-  Briefcase,
-} from "lucide-react-native";
 
 const DISTANCES = [5, 10, 15, 20, 50];
 
@@ -27,12 +28,14 @@ export default function ServicesAndLocationScreen() {
 
   // --- States ---
   const [loading, setLoading] = useState(true);
-  const [allServices, setAllServices] = useState<any[]>([]); 
+  const [allServices, setAllServices] = useState<any[]>([]);
   const [category, setCategory] = useState<string | null>(null);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [distance, setDistance] = useState<number>(10);
   const [address, setAddress] = useState<string | null>(null);
-  const [coords, setCoords] = useState<{ lat: number, lng: number } | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
 
   /* ------------------------------------------------------------------ */
   /* 1. Fetch Taxonomy & Existing Profile                               */
@@ -44,9 +47,9 @@ export default function ServicesAndLocationScreen() {
     const fetchTaxonomy = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, "services"));
-        const servicesData = querySnapshot.docs.map(doc => ({
+        const servicesData = querySnapshot.docs.map((doc) => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
         }));
         setAllServices(servicesData);
       } catch (e) {
@@ -77,7 +80,7 @@ export default function ServicesAndLocationScreen() {
 
       const loc = await Location.getCurrentPositionAsync({});
       setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-      
+
       const reverse = await Location.reverseGeocodeAsync({
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
@@ -85,7 +88,9 @@ export default function ServicesAndLocationScreen() {
 
       if (reverse.length) {
         const r = reverse[0];
-        setAddress(`${r.street || ""} ${r.name || r.district || ""}, ${r.city || ""}`);
+        setAddress(
+          `${r.street || ""} ${r.name || r.district || ""}, ${r.city || ""}`,
+        );
       }
     })();
   }, []);
@@ -95,13 +100,13 @@ export default function ServicesAndLocationScreen() {
   /* ------------------------------------------------------------------ */
   const toggleService = (serviceKey: string) => {
     if (selectedServices.includes(serviceKey)) {
-      setSelectedServices(prev => prev.filter(s => s !== serviceKey));
+      setSelectedServices((prev) => prev.filter((s) => s !== serviceKey));
     } else {
       if (selectedServices.length >= 5) {
         Alert.alert("Limit Reached", "You can select up to 5 specific skills.");
         return;
       }
-      setSelectedServices(prev => [...prev, serviceKey]);
+      setSelectedServices((prev) => [...prev, serviceKey]);
     }
   };
 
@@ -115,7 +120,7 @@ export default function ServicesAndLocationScreen() {
         serviceRadius: distance,
         locationAddress: address,
         coords: coords,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       });
       Alert.alert("Success", "Service preferences saved!");
       router.back();
@@ -124,7 +129,12 @@ export default function ServicesAndLocationScreen() {
     }
   };
 
-  if (loading) return <View style={styles.center}><ActivityIndicator color="#4f46e5" /></View>;
+  if (loading)
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color="#4f46e5" />
+      </View>
+    );
 
   return (
     <View style={styles.container}>
@@ -138,7 +148,6 @@ export default function ServicesAndLocationScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        
         {/* Category Selector */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Primary Category</Text>
@@ -153,8 +162,17 @@ export default function ServicesAndLocationScreen() {
                   style={[styles.chip, isSelected && styles.chipActive]}
                   onPress={() => setCategory(cat.id)}
                 >
-                  <Briefcase width={14} height={14} color={isSelected ? "#4f46e5" : "#6b7280"} />
-                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                  <Briefcase
+                    width={14}
+                    height={14}
+                    color={isSelected ? "#4f46e5" : "#6b7280"}
+                  />
+                  <Text
+                    style={[
+                      styles.chipText,
+                      isSelected && styles.chipTextActive,
+                    ]}
+                  >
                     {displayName}
                   </Text>
                 </TouchableOpacity>
@@ -165,31 +183,41 @@ export default function ServicesAndLocationScreen() {
 
         {/* Sub-Service Selector */}
         {/* Sub-Service Selector */}
-{category && (
-  <View style={styles.card}>
-    <Text style={styles.cardTitle}>Available Sub-Services</Text>
-    <View style={styles.chipRow}>
-      {Object.entries(allServices.find(s => s.id === category) || {})
-        .filter(([key, value]) => 
-          typeof value === 'object' && value !== null && key !== 'location'
-        )
-        .map(([key, data]: any) => {
-          const serviceKey = `${category}.${key}`; 
-          const active = selectedServices.includes(serviceKey);
-          
-          return (
-            <TouchableOpacity
-              key={serviceKey}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => toggleService(serviceKey)}
-            >
-              {active && <Check width={14} height={14} color="#4f46e5" />}
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                {data.name || key}
-              </Text>
-            </TouchableOpacity>
-                );
-              })}
+        {category && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Available Sub-Services</Text>
+            <View style={styles.chipRow}>
+              {Object.entries(allServices.find((s) => s.id === category) || {})
+                .filter(
+                  ([key, value]) =>
+                    typeof value === "object" &&
+                    value !== null &&
+                    key !== "location",
+                )
+                .map(([key, data]: any) => {
+                  const serviceKey = `${category}.${key}`;
+                  const active = selectedServices.includes(serviceKey);
+
+                  return (
+                    <TouchableOpacity
+                      key={serviceKey}
+                      style={[styles.chip, active && styles.chipActive]}
+                      onPress={() => toggleService(serviceKey)}
+                    >
+                      {active && (
+                        <Check width={14} height={14} color="#4f46e5" />
+                      )}
+                      <Text
+                        style={[
+                          styles.chipText,
+                          active && styles.chipTextActive,
+                        ]}
+                      >
+                        {data.name || key}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
             </View>
           </View>
         )}
@@ -198,7 +226,9 @@ export default function ServicesAndLocationScreen() {
         {selectedServices.length > 0 && (
           <View style={styles.summaryBox}>
             <Text style={styles.summaryTitle}>Currently Selected:</Text>
-            <Text style={styles.summaryText}>{selectedServices.length} skills chosen</Text>
+            <Text style={styles.summaryText}>
+              {selectedServices.length} skills chosen
+            </Text>
           </View>
         )}
 
@@ -220,7 +250,14 @@ export default function ServicesAndLocationScreen() {
                 style={[styles.chip, distance === d && styles.chipActive]}
                 onPress={() => setDistance(d)}
               >
-                <Text style={[styles.chipText, distance === d && styles.chipTextActive]}>{d} km</Text>
+                <Text
+                  style={[
+                    styles.chipText,
+                    distance === d && styles.chipTextActive,
+                  ]}
+                >
+                  {d} km
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -257,7 +294,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e5e7eb",
   },
-  cardTitle: { fontSize: 14, fontWeight: "800", color: "#6b7280", marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#6b7280",
+    marginBottom: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     flexDirection: "row",
@@ -273,11 +317,36 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: "#eef2ff", borderColor: "#4f46e5" },
   chipText: { fontSize: 13, fontWeight: "600", color: "#374151" },
   chipTextActive: { color: "#4f46e5", fontWeight: "800" },
-  locationBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#f9fafb", padding: 12, borderRadius: 10, borderWidth: 1, borderColor: "#e5e7eb" },
+  locationBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#f9fafb",
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
   locationText: { flex: 1, fontSize: 13, fontWeight: "600", color: "#1f2937" },
-  summaryBox: { padding: 12, backgroundColor: "#4f46e5", borderRadius: 10, marginBottom: 16 },
-  summaryTitle: { color: "#fff", fontSize: 12, fontWeight: "700", opacity: 0.8 },
+  summaryBox: {
+    padding: 12,
+    backgroundColor: "#4f46e5",
+    borderRadius: 10,
+    marginBottom: 16,
+  },
+  summaryTitle: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+    opacity: 0.8,
+  },
   summaryText: { color: "#fff", fontSize: 15, fontWeight: "900" },
-  saveBtn: { marginTop: 8, backgroundColor: "#111827", paddingVertical: 16, borderRadius: 12, alignItems: "center" },
+  saveBtn: {
+    marginTop: 8,
+    backgroundColor: "#111827",
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
   saveBtnText: { color: "#fff", fontSize: 16, fontWeight: "900" },
 });

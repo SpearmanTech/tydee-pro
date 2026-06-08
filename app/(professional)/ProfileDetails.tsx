@@ -19,8 +19,6 @@ import {
 
 import { ArrowLeft, Camera, MailCheck, User } from "lucide-react-native";
 
-
-
 export default function ProfileDetailsScreen() {
   const router = useRouter();
 
@@ -248,7 +246,6 @@ export default function ProfileDetailsScreen() {
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {

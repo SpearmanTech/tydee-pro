@@ -17,7 +17,7 @@ export default function OnboardingSuccess() {
   
   // Use a timeout to ensure state has settled
   setTimeout(() => {
-    router.replace('/(professional)/index');
+    router.replace('/(professional)/dashboard');
     setIsSubmitting(false);
   }, 100);
 };
