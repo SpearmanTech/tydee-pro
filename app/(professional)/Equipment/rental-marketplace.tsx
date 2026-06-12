@@ -24,6 +24,27 @@ import * as Haptics from 'expo-haptics';
 const { width } = Dimensions.get('window');
 const CATEGORIES = ['All', 'Power Tools', 'Cleaning', 'Gardening', 'Construction', 'Electrical'];
 
+// 🛑 THE BULLETPROOF URL FIXER
+const getValidImageUrl = (rawUrl: string | undefined | null) => {
+  const fallbackImage = 'https://images.unsplash.com/photo-1581141849291-1125c7b692b5?q=80&w=800'; // Reliable placeholder
+  if (!rawUrl) return fallbackImage;
+  
+  let url = rawUrl.trim();
+  
+  // Fix Firebase unencoded slash bug
+  if (url.includes('/o/') && !url.includes('%2F')) {
+     try {
+       const [baseUrl, rest] = url.split('/o/');
+       const [pathPart, queryPart] = rest.split('?');
+       const encodedPath = pathPart.split('/').join('%2F');
+       return `${baseUrl}/o/${encodedPath}?${queryPart || 'alt=media'}`;
+     } catch (e) {
+       return url;
+     }
+  }
+  return url;
+};
+
 export default function ProfessionalEquipmentMarketplace() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -80,7 +101,10 @@ export default function ProfessionalEquipmentMarketplace() {
   }, [activeCategory, searchQuery, equipment]);
 
   const renderItem = ({ item }: any) => {
-    const displayImage = item.media?.[0]?.replace('/originals/', '/thumbnails/') || item.media?.[0];
+    // 🛑 REMOVED the aggressive '.replace(/thumbnails/)' logic. 
+    // Uses the bulletproof fixer to extract the raw media, images, or imageUrls array.
+    const rawImage = item.media?.[0] || item.images?.[0] || item.imageUrls?.[0];
+    const displayImage = getValidImageUrl(rawImage);
 
     return (
       <TouchableOpacity 
@@ -134,7 +158,6 @@ export default function ProfessionalEquipmentMarketplace() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color="#0f172a" />
@@ -145,7 +168,6 @@ export default function ProfessionalEquipmentMarketplace() {
         </TouchableOpacity>
       </View>
 
-      {/* Search */}
       <View style={styles.searchContainer}>
         <View style={styles.glassSearch}>
           <Ionicons name="search-outline" size={20} color="#64748b" />
@@ -159,7 +181,6 @@ export default function ProfessionalEquipmentMarketplace() {
         </View>
       </View>
 
-      {/* Categories */}
       <View>
         <FlatList 
           data={CATEGORIES}

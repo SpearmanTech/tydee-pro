@@ -8,15 +8,33 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useAuth } from "../../../context/AuthContext"; // Adjusted path
-import { httpsCallable } from 'firebase/functions';
+import { useAuth } from "../../../context/AuthContext";
 import { doc, getDoc } from 'firebase/firestore';
-import { functions, db } from '@/firebase/firebase'; 
+import { db } from '@/firebase/firebase'; 
 
 const { width } = Dimensions.get("window");
 
+// 🛑 THE BULLETPROOF URL FIXER
+const getValidImageUrl = (rawUrl: string | undefined | null) => {
+  const fallbackImage = 'https://images.unsplash.com/photo-1581141849291-1125c7b692b5?q=80&w=800'; 
+  if (!rawUrl) return fallbackImage;
+  
+  let url = rawUrl.trim();
+  if (url.includes('/o/') && !url.includes('%2F')) {
+     try {
+       const [baseUrl, rest] = url.split('/o/');
+       const [pathPart, queryPart] = rest.split('?');
+       const encodedPath = pathPart.split('/').join('%2F');
+       return `${baseUrl}/o/${encodedPath}?${queryPart || 'alt=media'}`;
+     } catch (e) {
+       return url;
+     }
+  }
+  return url;
+};
+
 export default function ProfessionalBookingDetail() {
-  const { equipmentId } = useLocalSearchParams();
+  const { equipmentId, id: rentalId } = useLocalSearchParams();
   const { user } = useAuth();
   
   const [equipment, setEquipment] = useState<any>(null);
@@ -25,7 +43,6 @@ export default function ProfessionalBookingDetail() {
   
   const [days, setDays] = useState(1);
   const [hasInsurance, setHasInsurance] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [showCalendar, setShowCalendar] = useState(false);
   const [startDate, setStartDate] = useState('');
@@ -37,8 +54,25 @@ export default function ProfessionalBookingDetail() {
       try {
         const docRef = doc(db, 'equipment', equipmentId as string);
         const docSnap = await getDoc(docRef);
+        
         if (docSnap.exists()) {
-          setEquipment({ id: docSnap.id, ...docSnap.data() });
+          const data = docSnap.data();
+          let ownerData: any = {};
+          
+          // Fetch the real owner details (Customers who listed the gear)
+          const ownerId = data.userId || data.ownerId;
+          if (ownerId) {
+            const cxRef = await getDoc(doc(db, 'customers', ownerId));
+            if (cxRef.exists()) ownerData = cxRef.data();
+          }
+
+          setEquipment({ 
+            id: docSnap.id, 
+            ...data,
+            ownerName: ownerData.full_name || ownerData.name || data.ownerName || 'Verified Owner',
+            ownerAvatar: ownerData.profileImage || data.ownerAvatar || null,
+            ownerRating: ownerData.rating || data.rating || 'New',
+          });
         } else {
           Alert.alert("Not Found", "Equipment no longer available.");
           router.back();
@@ -98,52 +132,58 @@ export default function ProfessionalBookingDetail() {
     return marks;
   }, [startDate, endDate]);
 
-  const handleBooking = async () => {
-    if (!user) return Alert.alert("Required", "Please log in.");
-    if (!startDate || !endDate) return Alert.alert("Select Dates", "Please choose your rental period.");
-
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setIsSubmitting(true);
-
-    try {
-      const createRental = httpsCallable(functions, 'createRental');
-      const result = await createRental({
-        equipmentId,
-        startDate, // Matches your function's expectation
-        endDate,
-        hasInsurance,
-      });
-
-      if (result.data) {
-        Alert.alert(
-          "Request Sent", 
-          "The owner has been notified.",
-          // ✅ REDIRECT TO PROFESSIONAL RENTALS
-          [{ text: "View My Rentals", onPress: () => router.replace("/(professional)/dashboard") }]
-        );
-      }
-    } catch (error) {
-      Alert.alert("Error", "Could not initialize rental.");
-    } finally {
-      setIsSubmitting(false);
+  // 🚀 ROUTE TO THE PRO FAST-TRACK CHECKOUT
+  // 🚀 ROUTE TO THE PRO FAST-TRACK CHECKOUT
+  const handleCheckoutRoute = () => {
+    if (!user) {
+      Alert.alert("Required", "Please log in.");
+      return;
     }
+    if (!startDate || !endDate) {
+      Alert.alert("Select Dates", "Please choose your rental period.");
+      setShowCalendar(true);
+      return;
+    }
+
+    Haptics.selectionAsync();
+    
+    router.push({
+      pathname: "/(professional)/Equipment/rental-checkout",
+      params: {
+        equipmentId,
+        equipmentTitle: equipment.title,
+        ownerId: equipment.userId || equipment.ownerId,
+        days,
+        startDate,
+        endDate,
+        hasInsurance: hasInsurance ? "true" : "false",
+        totalAmount: total, // 👈 THE FIX: map the 'total' variable to the 'totalAmount' param
+        securityDeposit
+      }
+    });
   };
 
   if (isFetchingData) return <View style={styles.loader}><ActivityIndicator size="large" color="#6366f1" /></View>;
   if (!equipment) return null;
 
-  const mediaUrls = equipment?.media || ['https://via.placeholder.com/800'];
+  const extractedImages = equipment?.media || equipment?.images || equipment?.imageUrls || equipment?.photos;
+  const mediaUrls = extractedImages?.length > 0 ? extractedImages : [''];
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
         
         {/* Carousel */}
         <View style={styles.imageContainer}>
-          <ScrollView horizontal pagingEnabled onScroll={(e) => setActiveImageIndex(Math.round(e.nativeEvent.contentOffset.x / width))}>
+          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onScroll={(e) => setActiveImageIndex(Math.round(e.nativeEvent.contentOffset.x / width))}>
             {mediaUrls.map((url: string, i: number) => (
-              <Image key={i} source={{ uri: url.trim() }} style={styles.mainImage} resizeMode="cover" />
+              <Image 
+                key={i} 
+                source={{ uri: getValidImageUrl(url) }} 
+                style={styles.mainImage} 
+                resizeMode="cover" 
+              />
             ))}
           </ScrollView>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -159,7 +199,7 @@ export default function ProfessionalBookingDetail() {
           <View style={styles.indicator} />
           <View style={styles.headerRow}>
             <View style={{flex: 1}}>
-              <Text style={styles.categoryText}>{equipment.category?.toUpperCase()}</Text>
+              <Text style={styles.categoryText}>{equipment.category?.toUpperCase() || 'GENERAL'}</Text>
               <Text style={styles.title}>{equipment.title}</Text>
             </View>
             <View style={styles.premiumBadge}>
@@ -169,6 +209,21 @@ export default function ProfessionalBookingDetail() {
           </View>
 
           <Text style={styles.descriptionText}>{equipment.description}</Text>
+
+          {/* Owner Profile */}
+          <TouchableOpacity style={styles.ownerProfile}>
+            <View style={styles.avatarContainer}>
+               <Image source={{ uri: getValidImageUrl(equipment.ownerAvatar) || 'https://i.pravatar.cc/100' }} style={styles.avatar} />
+               <View style={styles.onlineDot} />
+            </View>
+            <View style={styles.ownerTextContent}>
+              <Text style={styles.ownerName}>{equipment.ownerName}</Text>
+              <View style={styles.ownerMeta}>
+                 <Ionicons name="star" size={12} color="#f59e0b" />
+                 <Text style={styles.metaText}>{equipment.ownerRating} • {equipment.locationString || 'Durban'}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
 
           {/* Timeline */}
           <View style={styles.section}>
@@ -213,18 +268,34 @@ export default function ProfessionalBookingDetail() {
               </View>
             </View>
           </View>
+
+          {/* Chat Action Container */}
+          <View style={styles.actionContainer}>
+            <TouchableOpacity 
+              style={styles.chatButton}
+              onPress={() => {
+                Haptics.selectionAsync();
+                router.push(`/(professional)/chat/${rentalId || equipmentId}`);
+              }}
+            >
+              <Ionicons name="chatbubbles" size={20} color="#fff" />
+              <Text style={styles.chatButtonText}>Message</Text>
+            </TouchableOpacity>
+          </View>
+
         </View>
       </ScrollView>
 
-      {/* Footer */}
+      {/* Footer - FIXED TO ROUTE TO CHECKOUT */}
       <View style={styles.footer}>
         <View style={styles.footerText}>
            <Text style={styles.footerPrice}>R{total}</Text>
            <Text style={styles.footerLabel}>Professional Rate</Text>
         </View>
-        <TouchableOpacity style={styles.confirmBtn} onPress={handleBooking} disabled={isSubmitting}>
+        <TouchableOpacity style={styles.confirmBtn} onPress={handleCheckoutRoute} activeOpacity={0.9}>
           <LinearGradient colors={['#0f172a', '#1e293b']} style={styles.confirmGradient}>
-            {isSubmitting ? <ActivityIndicator color="white" /> : <Text style={styles.confirmBtnText}>Confirm Rental</Text>}
+            <Text style={styles.confirmBtnText}>Continue</Text>
+            <Ionicons name="arrow-forward" size={18} color="white" />
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -233,7 +304,19 @@ export default function ProfessionalBookingDetail() {
       <Modal visible={showCalendar} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.calendarContainer}>
-            <Calendar minDate={new Date().toISOString().split('T')[0]} onDayPress={onDayPress} markingType={'period'} markedDates={markedDates} theme={{ todayTextColor: '#4f46e5', arrowColor: '#4f46e5' }} />
+            <View style={styles.calendarHeader}>
+              <Text style={styles.calendarTitle}>Select Rental Dates</Text>
+              <TouchableOpacity onPress={() => setShowCalendar(false)}>
+                <Ionicons name="close-circle" size={28} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+            <Calendar 
+              minDate={new Date().toISOString().split('T')[0]} 
+              onDayPress={onDayPress} 
+              markingType={'period'} 
+              markedDates={markedDates} 
+              theme={{ todayTextColor: '#4f46e5', arrowColor: '#4f46e5', textDayFontWeight: '600', textMonthFontWeight: '800', textDayHeaderFontWeight: '700' }} 
+            />
             <TouchableOpacity style={styles.saveDatesBtn} onPress={() => setShowCalendar(false)}>
               <Text style={styles.saveDatesText}>Confirm {days} Days</Text>
             </TouchableOpacity>
@@ -244,7 +327,6 @@ export default function ProfessionalBookingDetail() {
   );
 }
 
-// Sub-component and Styles remain largely the same as provided in your customer code
 function PriceLine({ label, value, isRefundable }: any) {
   return (
     <View style={{ marginBottom: 12 }}>
@@ -258,7 +340,6 @@ function PriceLine({ label, value, isRefundable }: any) {
 }
 
 const styles = StyleSheet.create({
-  // Use the styles you provided, adding the loader style:
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' },
   container: { flex: 1, backgroundColor: '#0f172a' },
   imageContainer: { width: '100%', height: 380 },
@@ -275,7 +356,17 @@ const styles = StyleSheet.create({
   premiumBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ecfdf5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
   badgeText: { fontSize: 10, fontWeight: '900', color: '#059669', marginLeft: 6 },
   descriptionText: { fontSize: 14, color: '#475569', lineHeight: 22, marginBottom: 24 },
-  section: { marginTop: 32 },
+  
+  ownerProfile: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 16, borderRadius: 24, shadowColor: '#0f172a', shadowOpacity: 0.05, shadowRadius: 15, elevation: 2, marginBottom: 20 },
+  avatarContainer: { position: 'relative' },
+  avatar: { width: 50, height: 50, borderRadius: 18 },
+  onlineDot: { position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#10b981', borderWidth: 3, borderColor: 'white' },
+  ownerTextContent: { flex: 1, marginLeft: 15 },
+  ownerName: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
+  ownerMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  metaText: { fontSize: 11, color: '#64748b', marginLeft: 5 },
+
+  section: { marginTop: 15 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a', marginBottom: 16 },
   dateCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', padding: 20, borderRadius: 24, borderWidth: 1, borderColor: '#f1f5f9' },
   dateInfo: { flexDirection: 'row', alignItems: 'center' },
@@ -298,15 +389,23 @@ const styles = StyleSheet.create({
   totalLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   totalLabel: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
   totalValue: { fontSize: 22, fontWeight: '900', color: '#4f46e5' },
+  
+  actionContainer: { marginTop: 24 },
+  chatButton: { flexDirection: 'row', backgroundColor: '#4f46e5', paddingVertical: 16, borderRadius: 16, justifyContent: 'center', alignItems: 'center', gap: 8, shadowColor: "#4f46e5", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
+  chatButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+
   footer: { position: 'absolute', bottom: 0, width: '100%', backgroundColor: 'white', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 25, paddingTop: 20, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
   footerText: { flex: 1 },
   footerPrice: { fontSize: 24, fontWeight: '900', color: '#0f172a' },
   footerLabel: { fontSize: 11, color: '#64748b' },
   confirmBtn: { width: '60%' },
-  confirmGradient: { paddingVertical: 18, borderRadius: 20, alignItems: 'center' },
+  confirmGradient: { flexDirection: 'row', paddingVertical: 18, borderRadius: 20, alignItems: 'center', justifyContent: 'center', gap: 8 },
   confirmBtnText: { color: 'white', fontWeight: '800', fontSize: 16 },
+  
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  calendarContainer: { backgroundColor: 'white', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24 },
+  calendarContainer: { backgroundColor: 'white', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40 },
+  calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  calendarTitle: { fontSize: 20, fontWeight: '900', color: '#0f172a' },
   saveDatesBtn: { backgroundColor: '#0f172a', paddingVertical: 18, borderRadius: 16, alignItems: 'center', marginTop: 20 },
   saveDatesText: { color: 'white', fontWeight: '800' }
 });

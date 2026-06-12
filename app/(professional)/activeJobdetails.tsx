@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { doc, onSnapshot, getDoc, updateDoc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { doc, onSnapshot, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
   ChevronLeft,
   MapPin,
@@ -33,67 +33,45 @@ export default function ActiveJobDetail() {
   const [elapsedTime, setElapsedTime] = useState("00:00:00");
   const [isCompleting, setIsCompleting] = useState(false);
 
-  const handleCompleteJob = () => {
-    // 1. THE ACTUAL DATABASE LOGIC
-    const executeCompletion = async () => {
-      try {
-        setIsCompleting(true);
-        
-        const batch = writeBatch(db);
-        const activeJobRef = doc(db, "jobs", jobId as string);
-        const completedJobRef = doc(db, "completed-jobs", jobId as string);
+  const handleCompleteJob = async () => {
+    // 1. Prevent double clicks
+    if (isCompleting) return;
+    
+    console.log("--- INITIATING JOB COMPLETION ---");
+    setIsCompleting(true);
+    
+    try {
+      const activeJobRef = doc(db, "jobs", jobId as string);
+      console.log("Target Job ID:", jobId);
 
-        batch.set(completedJobRef, {
-          ...job,
-          status: "payment_pending", 
-          jobEndedAt: serverTimestamp(),
-          paymentRequestedAt: serverTimestamp(),
-        });
+      // 2. Force the update to Firestore (NO deleting/moving the document)
+      await updateDoc(activeJobRef, {
+        status: "payment_pending", 
+        jobEndedAt: serverTimestamp(),
+        paymentRequestedAt: serverTimestamp(),
+      });
 
-        batch.delete(activeJobRef);
-        await batch.commit();
-
-        if (Platform.OS === "web") {
-          window.alert("Success: Job completed and payment requested.");
-        } else {
-          Alert.alert("Success", "Job completed and payment requested.");
-        }
-        
-        router.back(); 
-
-      } catch (error) {
-        console.error("Error moving job:", error);
-        if (Platform.OS === "web") {
-          window.alert("Error: Could not complete the job. Check your connection.");
-        } else {
-          Alert.alert("Error", "Could not complete the job. Check your connection.");
-        }
-        setIsCompleting(false);
+      console.log("✅ FIRESTORE UPDATE SUCCESSFUL!");
+      
+      // 3. Simple alert that doesn't get blocked by the browser
+      if (Platform.OS === "web") {
+        alert("Job completed! The customer has been notified to pay.");
+      } else {
+        Alert.alert("Success", "Job completed and payment requested.");
       }
-    };
+      
+      router.back(); 
 
-    // 2. THE PLATFORM CHECK FOR THE CONFIRMATION POPUP
-    if (Platform.OS === "web") {
-      // Use standard browser confirmation for web testing
-      const confirmWeb = window.confirm(
-        "Finish Assignment?\n\nConfirm all tasks are complete. This will move the job to your completed queue and request client payment."
-      );
-      if (confirmWeb) {
-        executeCompletion();
+    } catch (error: any) {
+      // 🚨 IF THIS FAILS, IT IS A FIREBASE PERMISSION ERROR
+      console.error("❌ FIREBASE UPDATE FAILED:", error);
+      if (Platform.OS === "web") {
+        alert(`Database Error: ${error.message}`);
+      } else {
+        Alert.alert("Database Error", error.message);
       }
-    } else {
-      // Use native iOS/Android Alert for the actual app
-      Alert.alert(
-        "Finish Assignment?",
-        "Confirm all tasks are complete. This will move the job to your completed queue and request client payment.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Yes, Request Payment",
-            onPress: executeCompletion,
-          },
-        ]
-      );
+    } finally {
+      setIsCompleting(false);
     }
   };
 
@@ -130,7 +108,7 @@ export default function ActiveJobDetail() {
     const unsub = onSnapshot(doc(db, "jobs", jobId as string), async (docSnap) => {
       if (docSnap.exists()) {
         const jobData = docSnap.data();
-        let customerProfile = {};
+        let customerProfile: any = {};
 
         const custId = jobData.customerId || jobData.customer_id || jobData.clientId;
 
@@ -145,15 +123,15 @@ export default function ActiveJobDetail() {
           }
         }
 
+        // We use "Unknown Client" fallback to ensure clientName is NEVER undefined
         setJob({ 
           id: docSnap.id, 
           ...jobData,
-          clientName: customerProfile.full_name || jobData.clientName,
-          clientPhone: customerProfile.phone || jobData.phone || jobData.clientPhone
+          clientName: customerProfile.full_name || jobData.clientName || "Unknown Client",
+          clientPhone: customerProfile.phone || jobData.phone || jobData.clientPhone || ""
         });
 
       } else {
-        // CRITICAL FIX: Only alert if we aren't in the middle of completing/moving the job
         if (!isCompleting) {
           Alert.alert("Notice", "This assignment is no longer active.");
           router.back();
@@ -163,7 +141,7 @@ export default function ActiveJobDetail() {
     });
 
     return () => unsub();
-  }, [jobId, isCompleting]); // Add isCompleting to the dependency array
+  }, [jobId, isCompleting]); 
 
   useEffect(() => {
     if (job?.status !== "in_progress" || !job?.jobStartedAt) return;
@@ -189,7 +167,6 @@ export default function ActiveJobDetail() {
     return () => clearInterval(interval);
   }, [job]);
 
-  // Adding the !job check ensures the UI never tries to read properties of null
   if (loading || !job) {
     return (
       <View style={styles.centered}>
@@ -276,24 +253,19 @@ export default function ActiveJobDetail() {
                return <Text style={styles.noConfigText}>No specific details provided.</Text>;
             }
 
-            // 1. Map through the raw property details
             const activeConfigs = Object.keys(detailsMap).map((key) => {
               const val = detailsMap[key];
               
-              // Only skip if it's completely undefined or an empty string, NOT if it's false
               if (val === undefined || val === null || val === "") return null;
               
-              // Format Booleans to Yes/No
               let displayVal = String(val);
               if (val === true) displayVal = "Yes";
               if (val === false) displayVal = "No";
               
-              // Clean up keys (e.g., 'hair_washed' -> 'Hair Washed')
               const cleanKey = key
                 .replace(/_/g, ' ')
                 .replace(/\b\w/g, l => l.toUpperCase()); 
 
-              // Skip rendering redundant address info since it's in the top card
               if (key === 'address' || key === 'city' || key === 'scheduledDate' || key === 'urgency') return null;
 
               return (

@@ -2,7 +2,7 @@
 import { auth, db, storage } from "@/firebase/firebase";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { ArrowLeft, ShieldCheck, UploadCloud } from "lucide-react-native";
 import React, { useEffect, useState } from "react";

@@ -24,3 +24,5 @@ export { verifyAndSaveProfessionalCard } from "./payments/verifyAndSaveProfessio
 // 4. Services & Dashboard
 export { getServices } from "./services/getServices";
 export { getProfessionalDashboard } from "./professionals/getProfessionalDashboard";
+// Chat Notifications
+export { onNewChatMessage } from "./notifications/chatPush";

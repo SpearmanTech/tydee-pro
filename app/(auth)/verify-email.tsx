@@ -1,11 +1,10 @@
 import { auth, db } from "@/firebase/firebase";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
 import { reload, sendEmailVerification } from "firebase/auth";
 import {
   deleteDoc,
   doc,
-  getDoc, // <--- Add this
+  getDoc,
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
@@ -20,13 +19,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useAuth } from "../../context/AuthContext"; // Adjust path as needed
+import { useAuth } from "../../context/AuthContext";
 
 export default function VerifyEmailScreen() {
   const [checking, setChecking] = useState(false);
   const [resending, setResending] = useState(false);
-  const router = useRouter();
-  const { signOut } = useAuth();
+  
+  // We extract signOut and refreshAuthState. We DO NOT need useRouter anymore!
+  const { signOut, refreshAuthState } = useAuth();
 
   const checkVerification = async () => {
     setChecking(true);
@@ -34,6 +34,7 @@ export default function VerifyEmailScreen() {
       const user = auth.currentUser;
       if (!user) return;
 
+      // Force Firebase to fetch the latest emailVerified status
       await reload(user);
       await user.getIdToken(true);
 
@@ -43,48 +44,46 @@ export default function VerifyEmailScreen() {
         const profRef = doc(db, "professionals", user.uid);
 
         const tempSnap = await getDoc(tempRef);
-        const businessData = tempSnap.exists() ? tempSnap.data() : {};
 
-        // 1. Move to users (This triggers the AuthContext listener)
+        // 1. Initialize the User document
         await setDoc(
           userRef,
           {
             uid: user.uid,
             email: user.email,
             role: "professional",
-            hasCompletedOnboarding: false, // Keep them in onboarding
+            hasCompletedOnboarding: false,
             createdAt: serverTimestamp(),
           },
-          { merge: true },
+          { merge: true }
         );
 
-        // 2. Move data to professionals
+        // 2. Initialize the Professional document
         await setDoc(
-          userRef,
+          profRef,
           {
             uid: user.uid,
             email: user.email,
             role: "professional",
-            hasCompletedOnboarding: false, // This is key
+            hasCompletedOnboarding: false,
             createdAt: serverTimestamp(),
           },
-          { merge: true },
+          { merge: true }
         );
 
-        // 3. Delete the buffer doc (Requires the import above!)
+        // 3. Clean up the provisional buffer
         if (tempSnap.exists()) {
           await deleteDoc(tempRef);
         }
 
-        // 4. Force Navigation
-        // Replace with your EXACT path to the first onboarding step
-        router.push("/(professional)/(onboarding)/step-business-info");
+        // 4. WAKE UP THE GATEKEEPER
+        // This updates the context state. The Gatekeeper will instantly see 
+        // user.emailVerified === true && isOnboarded === false, and will 
+        // cleanly route them to step-business-info without any race conditions.
+        await refreshAuthState();
 
-        if (tempSnap.exists()) {
-          await deleteDoc(tempRef);
-        }
       } else {
-        Alert.alert("Pending", "Please verify your email first.");
+        Alert.alert("Pending", "We haven't detected your verification yet. Please check your inbox and spam folder.");
       }
     } catch (error: any) {
       console.error("Migration Error:", error);
@@ -97,18 +96,28 @@ export default function VerifyEmailScreen() {
   const handleResend = async () => {
     setResending(true);
     try {
-      await sendEmailVerification(auth.currentUser!);
+      if (!auth.currentUser) return;
+      await sendEmailVerification(auth.currentUser);
       Alert.alert(
         "Sent!",
-        "A new verification link has been sent to your inbox.",
+        "A new verification link has been sent to your inbox."
       );
     } catch (error) {
       Alert.alert(
         "Limit Reached",
-        "Please wait a moment before requesting another link.",
+        "Please wait a moment before requesting another link."
       );
     } finally {
       setResending(false);
+    }
+  };
+
+  // Note: signOut here needs to use the parameter-less function from context
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      Alert.alert("Error", "Could not sign out.");
     }
   };
 
@@ -169,7 +178,7 @@ export default function VerifyEmailScreen() {
 
       <TouchableOpacity
         style={styles.logoutButton}
-        onPress={() => signOut(auth)}
+        onPress={handleSignOut}
       >
         <LogOut size={18} color="#94a3b8" />
         <Text style={styles.logoutText}>Cancel & Sign Out</Text>

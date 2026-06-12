@@ -12,13 +12,8 @@ import {
   User,
 } from "firebase/auth";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { useRouter, useSegments, useRootNavigationState } from "expo-router";
 
 type AuthContextType = {
   user: User | null;
@@ -27,135 +22,133 @@ type AuthContextType = {
   setIsOnboarded: (val: boolean) => void;
   signIn: (email: string, pass: string) => Promise<void>;
   signUp: (email: string, pass: string) => Promise<void>;
-  signInWithPhone: (
-    phoneNumber: string,
-    recaptchaVerifier: RecaptchaVerifier,
-  ) => Promise<ConfirmationResult>;
-  signUpWithPhone: (
-    phoneNumber: string,
-    recaptchaVerifier: RecaptchaVerifier,
-  ) => Promise<ConfirmationResult>;
-  sendEmailVerificationLink: () => Promise<void>;
   signOut: () => Promise<void>;
+  refreshAuthState: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// 🛡️ ZERO-JUMP GATEKEEPER
+export function useProtectedRoute(user: User | null, isOnboarded: boolean, loading: boolean, authTick: number) {
+  const segments = useSegments();
+  const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
+
+  useEffect(() => {
+    // 1. Hard Lock: Do nothing if Expo Router isn't ready or Auth is loading
+    if (!rootNavigationState?.key || loading) return;
+
+    const inAuthGroup = segments[0] === "(auth)";
+    const isVerifyScreen = segments[1] === "verify-email";
+    const isOnboardingGroup = segments[1] === "(onboarding)";
+
+    // 2. Safely defer routing to the next tick to prevent Expo Router flicker/crashes
+    const navigate = (path: string) => {
+      setTimeout(() => router.replace(path), 0);
+    };
+
+    // 3. Logged Out State
+    if (!user) {
+      if (!inAuthGroup || isVerifyScreen) {
+        navigate("/(auth)/login");
+      }
+      return;
+    }
+
+    // 4. Pending Verification State (Strict Blockade)
+    if (!user.emailVerified) {
+      if (!isVerifyScreen) {
+        navigate("/(auth)/verify-email");
+      }
+      return; // 🛑 Stop execution. They cannot pass until verified.
+    }
+
+    // 5. Pending Onboarding State (Only triggers if Verified)
+    if (user.emailVerified && !isOnboarded) {
+      if (!isOnboardingGroup) {
+        navigate("/(professional)/(onboarding)/step-business-info");
+      }
+      return; // 🛑 Stop execution. They cannot pass until onboarded.
+    }
+
+    // 6. Fully Cleared State (Verified & Onboarded)
+    if (user.emailVerified && isOnboarded) {
+      if (inAuthGroup || isOnboardingGroup || segments.length === 0) {
+        navigate("/(professional)/dashboard");
+      }
+    }
+  }, [user, isOnboarded, loading, segments, rootNavigationState?.key, authTick]);
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOnboarded, setIsOnboarded] = useState(false);
-  const optimisticOnboarded = useRef<boolean | null>(null);
+  const [authTick, setAuthTick] = useState(0); // Forces Gatekeeper re-evaluations safely
+
+  useProtectedRoute(user, isOnboarded, loading, authTick);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
-      setLoading(true);
       if (fbUser) {
-        // We listen to the "users" collection, which is only populated AFTER email verification.
+        // SINGLE SOURCE OF TRUTH: Firestore 'users' collection
         const userRef = doc(db, "users", fbUser.uid);
 
-        const unsubDoc = onSnapshot(
-          userRef,
-          (snap) => {
+        const unsubDoc = onSnapshot(userRef, (snap) => {
             if (snap.exists()) {
-              const userData = snap.data();
-              const firestoreOnboarded =
-                userData.hasCompletedOnboarding === true;
-
-              // Handle optimistic UI logic
-              if (optimisticOnboarded.current !== null) {
-                if (firestoreOnboarded === true) {
-                  setIsOnboarded(true);
-                  optimisticOnboarded.current = null;
-                } else {
-                  setIsOnboarded(optimisticOnboarded.current);
-                }
-              } else {
-                setIsOnboarded(firestoreOnboarded);
-              }
+              setIsOnboarded(snap.data().hasCompletedOnboarding === true);
             } else {
-              // If the doc doesn't exist, they are likely still in "provisional_signups"
               setIsOnboarded(false);
             }
             setUser(fbUser);
-            setLoading(false);
+            setLoading(false); // Only unlock gatekeeper AFTER data resolves
           },
           (error) => {
-            // Silencing permission errors during the provisional phase
-            console.log(
-              "Auth listener: User profile not yet available or accessible.",
-            );
             setUser(fbUser);
             setLoading(false);
-          },
+          }
         );
         return () => unsubDoc();
       } else {
         setUser(null);
         setIsOnboarded(false);
-        optimisticOnboarded.current = null;
         setLoading(false);
       }
     });
     return unsubscribe;
   }, []);
 
-  const signIn = async (email: string, pass: string) => {
-    await signInWithEmailAndPassword(auth, email, pass);
-  };
-
   const signUp = async (email: string, pass: string) => {
+    // 1. Create Auth User (triggers onAuthStateChanged automatically)
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
-
-    // 1. Trigger email verification immediately
+    
+    // 2. Send Email
     await sendEmailVerification(cred.user);
-
-    // 2. PROVISIONAL SHELL: Created in a buffer collection
-    // This avoids "Permission Denied" errors on the main user listener.
+    
+    // 3. Create Provisional Shell
     await setDoc(doc(db, "provisional_signups", cred.user.uid), {
       uid: cred.user.uid,
       email: cred.user.email,
       role: "professional",
       status: "pending_verification",
       createdAt: serverTimestamp(),
-      // TTL: Auto-delete after 48 hours if never verified
-      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
     });
-
-    setIsOnboarded(false);
-    optimisticOnboarded.current = null;
-    setUser(cred.user);
+    // Do NOT touch state or routing here. Let the listener do its job.
   };
 
-  const signInWithPhone = async (
-    phoneNumber: string,
-    recaptchaVerifier: RecaptchaVerifier,
-  ) => {
-    return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+  const refreshAuthState = async () => {
+    if (auth.currentUser) {
+      await auth.currentUser.reload();
+      setAuthTick((prev) => prev + 1); // Wakes up the Gatekeeper!
+    }
   };
 
-  const signUpWithPhone = async (
-    phoneNumber: string,
-    recaptchaVerifier: RecaptchaVerifier,
-  ) => {
-    return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-  };
-
-  const sendEmailVerificationLink = async () => {
-    if (!auth.currentUser) throw new Error("No user is currently signed in");
-    await sendEmailVerification(auth.currentUser);
+  const signIn = async (email: string, pass: string) => {
+    await signInWithEmailAndPassword(auth, email, pass);
   };
 
   const signOut = async () => {
     await firebaseSignOut(auth);
-    setUser(null);
-    setIsOnboarded(false);
-    optimisticOnboarded.current = null;
-  };
-
-  const handleSetIsOnboarded = (val: boolean) => {
-    optimisticOnboarded.current = val;
-    setIsOnboarded(val);
   };
 
   return (
@@ -164,13 +157,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         loading,
         isOnboarded,
-        setIsOnboarded: handleSetIsOnboarded,
+        setIsOnboarded,
         signIn,
         signUp,
-        signInWithPhone,
-        signUpWithPhone,
-        sendEmailVerificationLink,
         signOut,
+        refreshAuthState,
       }}
     >
       {children}

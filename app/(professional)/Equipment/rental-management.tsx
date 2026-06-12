@@ -10,6 +10,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { format } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router'; // 🚀 Added Router for navigation
 
 const STATUS_TABS = ['Active', 'Pending', 'Past'];
 
@@ -26,7 +27,7 @@ export default function ProfessionalRentalsDashboard() {
     const rentalsRef = collection(db, 'rentals');
     const q = query(
       rentalsRef, 
-      where('userId', '==', user.uid),
+      where('ownerId', '==', user.uid), // 🚀 Querying by ownerId to show rentals of YOUR gear
       orderBy('createdAt', 'desc')
     );
 
@@ -42,10 +43,11 @@ export default function ProfessionalRentalsDashboard() {
     return () => unsubscribe();
   }, [user]);
 
+  // 🚀 Updated to support the new Escrow Statuses
   const filteredRentals = rentals.filter(r => {
-    if (activeTab === 'Active') return r.status === 'confirmed' || r.status === 'in-progress';
+    if (activeTab === 'Active') return ['confirmed', 'pending_transfer', 'active', 'in-progress'].includes(r.status);
     if (activeTab === 'Pending') return r.status === 'pending';
-    if (activeTab === 'Past') return r.status === 'completed' || r.status === 'cancelled';
+    if (activeTab === 'Past') return ['completed', 'cancelled', 'returned'].includes(r.status);
     return true;
   });
 
@@ -57,10 +59,11 @@ export default function ProfessionalRentalsDashboard() {
       <View style={styles.cardHeader}>
         <View style={styles.itemInfo}>
           <Text style={styles.itemTitle}>{item.equipmentTitle || 'Equipment'}</Text>
-          <Text style={styles.jobText}>Job: {item.metadata?.location || 'General Site'}</Text>
+          <Text style={styles.jobText}>Location: {item.metadata?.location || 'General Site'}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{item.status?.toUpperCase()}</Text>
+          {/* Replaces underscores with spaces so 'pending_transfer' looks clean */}
+          <Text style={styles.statusText}>{item.status?.replace('_', ' ').toUpperCase()}</Text>
         </View>
       </View>
 
@@ -75,7 +78,15 @@ export default function ProfessionalRentalsDashboard() {
           <Ionicons name="wallet-outline" size={14} color="#64748b" />
           <Text style={styles.footerValue}>R{item.totalAmount}</Text>
         </View>
-        <TouchableOpacity style={styles.manageBtn}>
+        
+        {/* 🚀 Wired up the Manage Button to trigger the Handshake Screen */}
+        <TouchableOpacity 
+          style={styles.manageBtn}
+          onPress={() => router.push({
+            pathname: "/(professional)/Equipment/rental-admin",
+            params: { rentalId: item.id }
+          })}
+        >
            <Text style={styles.manageBtnText}>Manage</Text>
         </TouchableOpacity>
       </View>
@@ -95,9 +106,9 @@ export default function ProfessionalRentalsDashboard() {
       </View>
 
       <View style={styles.statsRow}>
-        <StatBox label="Active" value={rentals.filter(r => r.status === 'confirmed').length} color="#6366f1" />
+        <StatBox label="Active" value={rentals.filter(r => ['confirmed', 'pending_transfer', 'active'].includes(r.status)).length} color="#6366f1" />
         <StatBox label="Due Soon" value={0} color="#f59e0b" />
-        <StatBox label="Spending" value={`R${rentals.reduce((acc, r) => acc + (r.totalAmount || 0), 0)}`} color="#10b981" isLarge />
+        <StatBox label="Earnings" value={`R${rentals.reduce((acc, r) => acc + (r.rentalFee || r.totalAmount || 0), 0)}`} color="#10b981" isLarge />
       </View>
 
       {/* Status Tabs */}
@@ -143,12 +154,15 @@ const StatBox = ({ label, value, color, isLarge }: any) => (
   </View>
 );
 
+// 🚀 Dynamic color coding for new escrow logic
 const getStatusColor = (status: string) => {
   switch(status) {
-    case 'confirmed': return '#10b981';
-    case 'pending': return '#f59e0b';
-    case 'cancelled': return '#ef4444';
-    default: return '#64748b';
+    case 'active': return '#10b981'; // Green
+    case 'pending_transfer': return '#f59e0b'; // Orange (Action Required)
+    case 'confirmed': return '#3b82f6'; // Blue
+    case 'pending': return '#64748b'; // Gray
+    case 'cancelled': return '#ef4444'; // Red
+    default: return '#94a3b8';
   }
 };
 
@@ -169,9 +183,10 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 13, fontWeight: '700', color: '#64748b' },
   activeTabText: { color: 'white' },
 
-  list: { padding: 20 },
+  list: { padding: 20, paddingBottom: 100 },
   rentalCard: { backgroundColor: 'white', borderRadius: 24, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#f1f5f9' },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  itemInfo: { flex: 1, paddingRight: 10 },
   itemTitle: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
   jobText: { fontSize: 12, color: '#64748b', marginTop: 2 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
@@ -180,8 +195,8 @@ const styles = StyleSheet.create({
   cardFooter: { flexDirection: 'row', alignItems: 'center' },
   footerItem: { flexDirection: 'row', alignItems: 'center', marginRight: 20, gap: 6 },
   footerValue: { fontSize: 13, fontWeight: '700', color: '#0f172a' },
-  manageBtn: { marginLeft: 'auto', backgroundColor: '#f5f3ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-  manageBtnText: { fontSize: 12, fontWeight: '800', color: '#6366f1' },
+  manageBtn: { marginLeft: 'auto', backgroundColor: '#f5f3ff', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
+  manageBtnText: { fontSize: 13, fontWeight: '800', color: '#6366f1' },
 
   emptyState: { alignItems: 'center', marginTop: 60 },
   emptyText: { marginTop: 12, color: '#94a3b8', fontWeight: '600' }

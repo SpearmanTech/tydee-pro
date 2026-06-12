@@ -7,9 +7,9 @@ export const processReturn = onCall(async (request: CallableRequest) => {
     throw new HttpsError('unauthenticated', 'Login required');
   }
 
-  const { rentalId, conditionStatus, damageNotes } = request.data;
+ 
   const db = admin.firestore();
-
+const { rentalId, conditionStatus, damageNotes, scannedReturnCode } = request.data; // Add scannedReturnCode
   return await db.runTransaction(async (transaction) => {
     const rentalRef = db.collection('rentals').doc(rentalId);
     const rentalDoc = await transaction.get(rentalRef);
@@ -24,7 +24,9 @@ export const processReturn = onCall(async (request: CallableRequest) => {
     if (rentalData.listerId !== request.auth!.uid) {
       throw new HttpsError('permission-denied', 'Unauthorized: You are not the owner of this item.');
     }
-
+if (rentalData.returnCode !== scannedReturnCode) {
+  throw new HttpsError('invalid-argument', 'Invalid Return PIN. Cannot close rental.');
+}
     if (rentalData.status !== 'active') {
       throw new HttpsError('failed-precondition', 'This rental is not currently active');
     }

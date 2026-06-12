@@ -1,11 +1,5 @@
-import { auth, db } from "@/firebase/firebase";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import {
-  createUserWithEmailAndPassword,
-  sendEmailVerification,
-} from "firebase/auth";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { ArrowLeft, Lock, Mail, UserPlus } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -38,34 +32,10 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      // 1. Create the Auth user
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-      const user = userCredential.user;
-
-      // 2. Send the verification email
-      await sendEmailVerification(user);
-
-      // 3. CREATE THE PROVISIONAL SHELL IMMEDIATELY
-      // This solves the permission/existence error in the next screen
-      await setDoc(doc(db, "provisional_signups", user.uid), {
-        uid: user.uid,
-        email: user.email,
-        status: "pending_verification",
-        createdAt: serverTimestamp(),
-        // TTL: Auto-delete after 48 hours if verification isn't completed
-        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
-      });
-
-      // 4. Inform the user
-      Alert.alert(
-        "Verify Your Email",
-        `A verification link has been sent to ${email}. Please check your inbox to activate your Tydee profile.`,
-        [{ text: "OK" }],
-      );
+      // 1. Hand off completely to the AuthContext
+      // The Gatekeeper will automatically detect the unverified state and route them!
+      await signUp(email, password);
+      
     } catch (error: any) {
       console.error("Signup error:", error);
       let message = "An error occurred during sign up.";

@@ -1,5 +1,5 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
-import { useEffect } from 'react';
+import { Stack } from 'expo-router';
+import React from 'react';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 
 export default function RootLayout() {
@@ -11,27 +11,18 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const { user, loading, isOnboarded } = useAuth();
-  const segments = useSegments();
-  const router = useRouter();
+  const { loading } = useAuth();
 
-  useEffect(() => {
-    if (loading) return;
-
-    const inAuthGroup = segments[0] === '(auth)';
-    const inProfessionalGroup = segments[0] === '(professional)';
-
-    if (!user && !inAuthGroup) {
-      // 1. If no user, force to login
-      router.replace('/(auth)/login');
-    } else if (user && inAuthGroup) {
-      // 2. If logged in but still in auth, push to the dashboard
-      router.replace('/(professional)/dashboard');
-    }
-  }, [user, loading, segments]);
+  // Prevents screen flickering while Firebase checks if the user is logged in
+  if (loading) {
+    return null; 
+  }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
+      {/* NO ROUTING LOGIC HERE!
+        AuthContext.tsx handles all redirects securely in the background. 
+      */}
       <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(professional)" />

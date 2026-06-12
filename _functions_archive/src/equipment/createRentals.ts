@@ -68,8 +68,9 @@ export const createRental = onCall(async (request: CallableRequest) => {
         startDate: admin.firestore.Timestamp.fromDate(start),
         endDate: admin.firestore.Timestamp.fromDate(end),
         totalAmount: subtotal,
-        handoverCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        // Inside createRentals.ts (Line 59)
+handoverCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+returnCode: Math.random().toString(36).substring(2, 8).toUpperCase(), // Add this!
       });
 
       return { rentalId: rentalRef.id, total: subtotal };

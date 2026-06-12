@@ -2,6 +2,7 @@ import { db } from "@/firebase/firebase";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { Linking, Platform } from 'react-native';
 import {
   ArrowLeft,
   Info,
@@ -16,7 +17,6 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -32,7 +32,25 @@ export default function SquadJobDetails() {
   const [squadJob, setSquadJob] = useState<any>(null);
   const [originalJob, setOriginalJob] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+const handleOpenMap = () => {
+  const address = squadJob?.location || "Durban, South Africa"; // The job's string address
+  const encodedAddress = encodeURIComponent(address);
+  
+  // OS-Specific Map Links
+  const url = Platform.select({
+    ios: `maps:0,0?q=${encodedAddress}`,
+    android: `geo:0,0?q=${encodedAddress}`,
+    web: `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`
+  });
 
+  Linking.canOpenURL(url as string).then(supported => {
+    if (supported) {
+      Linking.openURL(url as string);
+    } else {
+      Alert.alert("Error", "Could not open map application.");
+    }
+  });
+};
   useEffect(() => {
     if (!jobId) return;
 
