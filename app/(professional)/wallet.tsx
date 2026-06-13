@@ -1,6 +1,6 @@
-import AddCardModal from "../../context/addCardModal"; 
+import AddCardModal from "../../context/addCardModal";
 import { LinearGradient } from "expo-linear-gradient";
-import { auth, db } from "@/firebase/firebase"; 
+import { auth, db } from "@/firebase/firebase";
 import { useRouter } from "expo-router";
 import { onSnapshot, doc } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
@@ -12,7 +12,7 @@ import {
   Plus,
   Trash2,
   Ticket,
-  ShieldCheck
+  ShieldCheck,
 } from "lucide-react-native";
 import React, { useState, useEffect } from "react";
 import {
@@ -23,7 +23,7 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Alert
+  Alert,
 } from "react-native";
 import Animated, { FadeInDown, FadeInRight } from "react-native-reanimated";
 
@@ -47,35 +47,37 @@ export default function ProfessionalPaymentDashboard() {
     const executeRemoval = async () => {
       try {
         const functions = getFunctions();
-        const removeCardFn = httpsCallable(functions, 'removeProfessionalCard');
+        const removeCardFn = httpsCallable(functions, "removeProfessionalCard");
         await removeCardFn();
-        
-        if (Platform.OS === 'web') {
-           window.alert("Success: Card removed successfully.");
+
+        if (Platform.OS === "web") {
+          window.alert("Success: Card removed successfully.");
         } else {
-           Alert.alert("Success", "Card removed successfully.");
+          Alert.alert("Success", "Card removed successfully.");
         }
       } catch (error) {
         console.error(error);
-        if (Platform.OS === 'web') {
-           window.alert("Error: Could not remove card. Please try again.");
+        if (Platform.OS === "web") {
+          window.alert("Error: Could not remove card. Please try again.");
         } else {
-           Alert.alert("Error", "Could not remove card. Please try again.");
+          Alert.alert("Error", "Could not remove card. Please try again.");
         }
       }
     };
 
-    if (Platform.OS === 'web') {
-      const confirmWeb = window.confirm("Remove Card\n\nYou will need to re-link a card for future equipment rentals. Continue?");
+    if (Platform.OS === "web") {
+      const confirmWeb = window.confirm(
+        "Remove Card\n\nYou will need to re-link a card for future equipment rentals. Continue?",
+      );
       if (confirmWeb) executeRemoval();
     } else {
       Alert.alert(
-        "Remove Card", 
-        "You will need to re-link a card for future equipment rentals. Continue?", 
+        "Remove Card",
+        "You will need to re-link a card for future equipment rentals. Continue?",
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Remove", style: "destructive", onPress: executeRemoval }
-        ]
+          { text: "Remove", style: "destructive", onPress: executeRemoval },
+        ],
       );
     }
   };
@@ -86,15 +88,20 @@ export default function ProfessionalPaymentDashboard() {
 
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <ArrowLeft size={22} color="#1e293b" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Payments & Wallet</Text>
-        <View style={{ width: 44 }} /> 
+        <View style={{ width: 44 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* WALLET HERO CARD */}
         <Animated.View entering={FadeInDown.delay(100)}>
           <LinearGradient
@@ -120,7 +127,7 @@ export default function ProfessionalPaymentDashboard() {
           <Text style={styles.sectionLabel}>SAVED CARDS</Text>
           {!paymentData && (
             <TouchableOpacity onPress={() => setShowModal(true)}>
-               <Text style={styles.addText}>+ Add New</Text>
+              <Text style={styles.addText}>+ Add New</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -145,23 +152,27 @@ export default function ProfessionalPaymentDashboard() {
             </View>
           </Animated.View>
         ) : (
-          <TouchableOpacity 
-            style={styles.emptyCardSlot} 
+          <TouchableOpacity
+            style={styles.emptyCardSlot}
             onPress={() => setShowModal(true)}
           >
             <Plus color="#94a3b8" size={20} />
-            <Text style={styles.emptyCardText}>Add card for rentals & fees</Text>
+            <Text style={styles.emptyCardText}>
+              Add card for rentals & fees
+            </Text>
           </TouchableOpacity>
         )}
 
         {/* SECTION: PROMOTIONS */}
         <Text style={[styles.sectionLabel, { marginTop: 20 }]}>PROMOTIONS</Text>
         <TouchableOpacity style={styles.menuItem}>
-            <View style={[styles.cardIconContainer, { backgroundColor: '#fef3c7' }]}>
-                <Ticket color="#d97706" size={20} />
-            </View>
-            <Text style={styles.menuText}>View My Coupons</Text>
-            <ChevronRight size={20} color="#cbd5e1" />
+          <View
+            style={[styles.cardIconContainer, { backgroundColor: "#fef3c7" }]}
+          >
+            <Ticket color="#d97706" size={20} />
+          </View>
+          <Text style={styles.menuText}>View My Coupons</Text>
+          <ChevronRight size={20} color="#cbd5e1" />
         </TouchableOpacity>
 
         {/* SECURITY INFO */}
@@ -170,25 +181,26 @@ export default function ProfessionalPaymentDashboard() {
             <ShieldCheck size={16} color="#10b981" />
           </View>
           <Text style={styles.infoText}>
-            Your payment data is encrypted. Rental charges and service fees are processed securely via Paystack.
+            Your payment data is encrypted. Rental charges and service fees are
+            processed securely via Paystack.
           </Text>
         </View>
       </ScrollView>
 
       {/* ADD CARD MODAL */}
       {showModal && (
-        <AddCardModal 
-          userId={user?.uid} 
+        <AddCardModal
+          userId={user?.uid}
           // FIX: Pass a fallback email if the user profile doesn't have one!
-          email={user?.email || "pro_billing@tydee.app"} 
+          email={user?.email || "pro_billing@Foona.app"}
           onComplete={(success) => {
             setShowModal(false);
-            if(success) {
-              Platform.OS === 'web' 
-                ? window.alert("Success: Card linked successfully!") 
+            if (success) {
+              Platform.OS === "web"
+                ? window.alert("Success: Card linked successfully!")
                 : Alert.alert("Success", "Card linked successfully!");
             }
-          }} 
+          }}
         />
       )}
     </View>
@@ -217,7 +229,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: { padding: 20 },
   heroCard: { borderRadius: 24, padding: 25, marginBottom: 25 },
-  statsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   iconCircle: {
     width: 56,
     height: 56,
@@ -227,9 +243,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   heroTitle: { fontSize: 28, fontWeight: "900", color: "#fff" },
-  heroSub: { fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: "600", marginBottom: 5 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  sectionLabel: { fontSize: 11, fontWeight: "800", color: "#94a3b8", letterSpacing: 1.2 },
+  heroSub: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.8)",
+    fontWeight: "600",
+    marginBottom: 5,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#94a3b8",
+    letterSpacing: 1.2,
+  },
   addText: { fontSize: 13, fontWeight: "700", color: "#6366f1" },
   cardItem: {
     backgroundColor: "#fff",
@@ -257,23 +288,23 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 2,
     borderColor: "#e2e8f0",
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
   },
   emptyCardText: { color: "#94a3b8", fontWeight: "600" },
   menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
     padding: 12,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#f1f5f9'
+    borderColor: "#f1f5f9",
   },
-  menuText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1e293b' },
+  menuText: { flex: 1, fontSize: 15, fontWeight: "600", color: "#1e293b" },
   infoBox: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -283,7 +314,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#f1f5f9",
-    marginTop: 30
+    marginTop: 30,
   },
   infoIconCircle: {
     width: 30,
@@ -293,5 +324,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  infoText: { flex: 1, fontSize: 12, color: "#64748b", fontWeight: "500", lineHeight: 18 },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: "500",
+    lineHeight: 18,
+  },
 });

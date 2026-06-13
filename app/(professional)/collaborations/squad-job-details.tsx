@@ -2,7 +2,7 @@ import { db } from "@/firebase/firebase";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { doc, getDoc, onSnapshot } from "firebase/firestore";
-import { Linking, Platform } from 'react-native';
+import { Linking, Platform } from "react-native";
 import {
   ArrowLeft,
   Info,
@@ -32,25 +32,25 @@ export default function SquadJobDetails() {
   const [squadJob, setSquadJob] = useState<any>(null);
   const [originalJob, setOriginalJob] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-const handleOpenMap = () => {
-  const address = squadJob?.location || "Durban, South Africa"; // The job's string address
-  const encodedAddress = encodeURIComponent(address);
-  
-  // OS-Specific Map Links
-  const url = Platform.select({
-    ios: `maps:0,0?q=${encodedAddress}`,
-    android: `geo:0,0?q=${encodedAddress}`,
-    web: `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`
-  });
+  const handleOpenMap = () => {
+    const address = squadJob?.location || "Durban, South Africa"; // The job's string address
+    const encodedAddress = encodeURIComponent(address);
 
-  Linking.canOpenURL(url as string).then(supported => {
-    if (supported) {
-      Linking.openURL(url as string);
-    } else {
-      Alert.alert("Error", "Could not open map application.");
-    }
-  });
-};
+    // OS-Specific Map Links
+    const url = Platform.select({
+      ios: `maps:0,0?q=${encodedAddress}`,
+      android: `geo:0,0?q=${encodedAddress}`,
+      web: `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`,
+    });
+
+    Linking.canOpenURL(url as string).then((supported) => {
+      if (supported) {
+        Linking.openURL(url as string);
+      } else {
+        Alert.alert("Error", "Could not open map application.");
+      }
+    });
+  };
   useEffect(() => {
     if (!jobId) return;
 
@@ -184,7 +184,7 @@ const handleOpenMap = () => {
             onPress={() =>
               Alert.alert(
                 "Incident Report",
-                "Would you like to notify all squad members and Tydee support of an emergency?",
+                "Would you like to notify all squad members and Foona support of an emergency?",
                 [
                   { text: "Cancel", style: "cancel" },
                   {
@@ -285,7 +285,7 @@ const handleOpenMap = () => {
           <Text style={styles.econValue}>R{squadJob?.payoutPerMember}</Text>
           <View style={styles.econDivider} />
           <Text style={styles.econSub}>
-            Payments are held in Tydee Escrow and released to members
+            Payments are held in Foona Escrow and released to members
             automatically upon completion.
           </Text>
         </View>

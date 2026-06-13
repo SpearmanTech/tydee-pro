@@ -254,7 +254,7 @@ export default function EarningsScreen() {
           />
           <MetricCard
             icon={<BadgePercent size={18} color="#ef4444" />}
-            title="Tydee Fee"
+            title="Foona Fee"
             value={formatZAR(selectedData.commission)}
           />
         </View>

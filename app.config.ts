@@ -2,9 +2,9 @@ import { ConfigContext, ExpoConfig } from "expo/config";
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config, // This spreads existing static config if you have an app.json
-  name: "Tydee",
-  slug: "tydee",
-  scheme: "tydee",
+  name: "Foona",
+  slug: "Foona",
+  scheme: "Foona",
   version: "1.0.0",
 
   // EAS EXPECTS THESE EXACTLY LIKE THIS:
@@ -17,11 +17,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 
   platforms: ["ios", "android", "web"],
   ios: {
-    bundleIdentifier: "com.spearman.tydee",
+    bundleIdentifier: "com.spearman.Foona",
     supportsTablet: true,
   },
   android: {
-    package: "com.spearman.tydee",
+    package: "com.spearman.Foona",
   },
   plugins: [
     "expo-router",

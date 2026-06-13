@@ -40,7 +40,7 @@ yarn-error.*
 /ios
 /android
 
-# Firebase configs (Crucial for Tydee)
+# Firebase configs (Crucial for Foona)
 google-services.json
 GoogleService-Info.plist
 firebase-debug.log

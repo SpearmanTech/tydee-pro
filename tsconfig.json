@@ -12,5 +12,5 @@
     "**/*.ts",
     "**/*.tsx",
     "metro.config.js"
-, "../tydee/app/(customer)/equipment/Rent/rental-admin.tsx"  ]
+, "../Foona/app/(customer)/equipment/Rent/rental-admin.tsx"  ]
 }

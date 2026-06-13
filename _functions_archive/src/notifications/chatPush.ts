@@ -40,7 +40,7 @@ export const onNewChatMessage = onDocumentCreated(
     const payload = {
       token: pushToken,
       notification: {
-        title: chatData.equipmentName ? `New message about ${chatData.equipmentName}` : "Tydee Message",
+        title: chatData.equipmentName ? `New message about ${chatData.equipmentName}` : "Foona Message",
         body: text.length > 60 ? text.substring(0, 60) + "..." : text,
       },
       data: {

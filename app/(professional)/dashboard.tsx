@@ -15,6 +15,7 @@ import {
 import { getFunctions, httpsCallable } from "firebase/functions";
 import {
   Briefcase,
+  Activity,
   Calendar,
   CheckCircle,
   DollarSign,
@@ -432,6 +433,33 @@ export default function ProfessionalDashboard() {
           />
         </View>
 
+        {/* 🚀 FOONA PULSE BANNER */}
+        <Animated.View entering={FadeInDown.delay(200)}>
+          <TouchableOpacity 
+            activeOpacity={0.8} 
+            onPress={() => router.push("/(professional)/demandzones" as any)}
+          >
+            <LinearGradient
+              colors={["#0f172a", "#1e293b"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.pulseBanner}
+            >
+              <View style={styles.pulseIconBox}>
+                <Activity color="#10b981" size={24} />
+              </View>
+              <View style={styles.pulseTextContent}>
+                <Text style={styles.pulseTitle}>Foona Pulse</Text>
+                <Text style={styles.pulseSub}>View Live Demand Zones</Text>
+              </View>
+              <View style={styles.pulseLiveIndicator}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>LIVE</Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+
         {/* ACTIVE ASSIGNMENTS */}
         <Text style={styles.sectionTitle}>Active Assignments</Text>
         {bookings.filter((b) => b.status !== "completed").length === 0 ? (
@@ -458,8 +486,13 @@ export default function ProfessionalDashboard() {
                 </View>
                 <View style={styles.jobFooter}>
                   <Text style={styles.jobPrice}>
-  {formatZAR(b.accepted_bid_details?.amount || b.price || b.budget || 0)}
-</Text>
+                    {formatZAR(
+                      b.accepted_bid_details?.amount ||
+                        b.price ||
+                        b.budget ||
+                        0,
+                    )}
+                  </Text>
                   <View style={styles.btnRow}>
                     <TouchableOpacity
                       style={styles.subBtn}
@@ -611,7 +644,7 @@ export default function ProfessionalDashboard() {
                 <View style={styles.detailSection}>
                   <Text style={styles.detailLabel}>Client Name</Text>
                   <Text style={styles.detailValue}>
-                    {selectedJobForBid?.displayName || "Tydee User"}
+                    {selectedJobForBid?.displayName || "Foona User"}
                   </Text>
                 </View>
                 <View style={styles.detailSection}>
@@ -841,6 +874,62 @@ const styles = StyleSheet.create({
     backgroundColor: "#f1f5f9",
     justifyContent: "center",
     alignItems: "center",
+  },
+// Foona Pulse Styles
+  pulseBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 25,
+    elevation: 5,
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+  },
+  pulseIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 15,
+  },
+  pulseTextContent: {
+    flex: 1,
+  },
+  pulseTitle: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  pulseSub: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  pulseLiveIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#ef4444",
+    marginRight: 6,
+  },
+  liveText: {
+    color: "#ef4444",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1,
   },
   avatar: {
     width: 40,

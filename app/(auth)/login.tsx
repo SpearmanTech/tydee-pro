@@ -1,19 +1,19 @@
 import React, { useState } from "react";
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   ScrollView,
-  Alert, 
-  ActivityIndicator, 
-  KeyboardAvoidingView, 
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
-  StatusBar
+  StatusBar,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../../context/AuthContext";
 import { KeyRound, Mail, ChevronRight, Phone } from "lucide-react-native";
 
@@ -38,9 +38,11 @@ export default function LoginScreen() {
     } catch (error: any) {
       console.error("Login Error:", error.code);
       let errorMessage = "An error occurred during sign in.";
-      if (error.code === 'auth/invalid-credential') errorMessage = "Incorrect email or password.";
-      if (error.code === 'auth/user-not-found') errorMessage = "No account found with this email.";
-      
+      if (error.code === "auth/invalid-credential")
+        errorMessage = "Incorrect email or password.";
+      if (error.code === "auth/user-not-found")
+        errorMessage = "No account found with this email.";
+
       Alert.alert("Sign In Failed", errorMessage);
     } finally {
       setLoading(false);
@@ -50,16 +52,20 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"} 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
-          
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          bounces={false}
+        >
           {/* HEADER SECTION */}
           <View style={styles.headerSection}>
             <Text style={styles.welcomeTitle}>Welcome Back</Text>
-            <Text style={styles.welcomeSubtitle}>Sign in to your professional portal</Text>
+            <Text style={styles.welcomeSubtitle}>
+              Sign in to your professional portal
+            </Text>
           </View>
 
           {/* FORM SECTION */}
@@ -93,35 +99,35 @@ export default function LoginScreen() {
               />
             </View>
 
-           <TouchableOpacity 
-  style={[styles.primaryButton, loading && styles.buttonDisabled]} 
-  onPress={handleSignIn}
-  disabled={loading}
->
-  <LinearGradient
-    colors={['#1e293b', '#0f172a']}
-    style={styles.buttonGradient}
-  >
-    {loading ? (
-      <ActivityIndicator color="#fff" />
-    ) : (
-      <>
-        <Text style={styles.buttonText}>Sign In</Text>
-        <ChevronRight size={18} color="#fff" />
-      </>
-    )}
-  </LinearGradient>
-</TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.primaryButton, loading && styles.buttonDisabled]}
+              onPress={handleSignIn}
+              disabled={loading}
+            >
+              <LinearGradient
+                colors={["#1e293b", "#0f172a"]}
+                style={styles.buttonGradient}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Text style={styles.buttonText}>Sign In</Text>
+                    <ChevronRight size={18} color="#fff" />
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
 
-{/* Forgot Password Link */}
-<TouchableOpacity 
-  onPress={() => router.push("/(auth)/forgot-password")}
-  style={styles.forgotPasswordContainer}
-  activeOpacity={0.7}
->
-  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-</TouchableOpacity>
-        
+            {/* Forgot Password Link */}
+            <TouchableOpacity
+              onPress={() => router.push("/(auth)/forgot-password")}
+              style={styles.forgotPasswordContainer}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+
             {/* DIVIDER */}
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
@@ -130,15 +136,17 @@ export default function LoginScreen() {
             </View>
 
             {/* PHONE SIGN IN BUTTON */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.phoneButton}
               onPress={() => router.push("/(auth)/phoneLogin")}
             >
               <Phone size={20} color="#6366f1" />
-              <Text style={styles.phoneButtonText}>Sign in with Phone Number</Text>
+              <Text style={styles.phoneButtonText}>
+                Sign in with Phone Number
+              </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => {
                 if (loading) return;
                 router.push("/register");
@@ -146,7 +154,8 @@ export default function LoginScreen() {
               style={styles.footerLink}
             >
               <Text style={styles.linkText}>
-                New to Tydee? <Text style={styles.linkTextBold}>Join the community</Text>
+                New to Foona?{" "}
+                <Text style={styles.linkTextBold}>Join the community</Text>
               </Text>
             </TouchableOpacity>
           </View>
@@ -171,13 +180,28 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
-    transform: [{ rotate: '-10deg' }],
+    transform: [{ rotate: "-10deg" }],
   },
   logoText: { color: "#fff", fontSize: 32, fontWeight: "900" },
-  brandName: { fontSize: 18, fontWeight: "800", color: "#6366f1", letterSpacing: -0.5 },
-  welcomeTitle: { fontSize: 28, fontWeight: "800", color: "#1e293b", marginTop: 24 },
-  welcomeSubtitle: { fontSize: 15, color: "#64748b", marginTop: 8, fontWeight: "500" },
-  
+  brandName: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#6366f1",
+    letterSpacing: -0.5,
+  },
+  welcomeTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#1e293b",
+    marginTop: 24,
+  },
+  welcomeSubtitle: {
+    fontSize: 15,
+    color: "#64748b",
+    marginTop: 8,
+    fontWeight: "500",
+  },
+
   formSection: { paddingHorizontal: 32 },
   inputContainer: {
     flexDirection: "row",
@@ -215,26 +239,31 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   buttonDisabled: { opacity: 0.8 },
-  buttonText: { color: "#fff", fontWeight: "800", fontSize: 16, letterSpacing: 0.5 },
-  
+  buttonText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 16,
+    letterSpacing: 0.5,
+  },
+
   // Divider
-  divider: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    marginVertical: 24 
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 24,
   },
-  dividerLine: { 
-    flex: 1, 
-    height: 1, 
-    backgroundColor: "#e5e7eb" 
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#e5e7eb",
   },
-  dividerText: { 
-    marginHorizontal: 16, 
-    color: "#9ca3af", 
-    fontSize: 12, 
-    fontWeight: "600" 
+  dividerText: {
+    marginHorizontal: 16,
+    color: "#9ca3af",
+    fontSize: 12,
+    fontWeight: "600",
   },
-  
+
   // Phone button
   phoneButton: {
     flexDirection: "row",
@@ -252,9 +281,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 15,
   },
-  
+
   footerLink: { marginTop: 32 },
-  linkText: { textAlign: "center", color: "#64748b", fontSize: 14, fontWeight: "500" },
+  linkText: {
+    textAlign: "center",
+    color: "#64748b",
+    fontSize: 14,
+    fontWeight: "500",
+  },
   linkTextBold: { color: "#6366f1", fontWeight: "700" },
 
   forgotPasswordContainer: {

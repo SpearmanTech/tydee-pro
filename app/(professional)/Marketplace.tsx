@@ -341,7 +341,7 @@ export default function Marketplace() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.floatingClient}>
                     Gig Request by{" "}
-                    {selectedJob?.displayName || "Tydee Customer"}
+                    {selectedJob?.displayName || "Foona Customer"}
                   </Text>
                   <Text style={styles.floatingTitle} numberOfLines={2}>
                     {selectedJob?.title}

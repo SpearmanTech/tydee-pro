@@ -58,7 +58,7 @@ const AddCardModal = ({ userId, email, onComplete }: Props) => {
     console.warn("Missing User ID or Email for Paystack");
     return null;
   }
-  const safeEmail = email || "billing@tydee.app";
+  const safeEmail = email || "billing@Foona.app";
 
   if (!PAYSTACK_PUBLIC_KEY) {
     Alert.alert("Configuration Error", "Paystack public key is missing.");

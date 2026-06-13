@@ -60,7 +60,7 @@ export default function ProfileSettingsDrawer({ visible, onClose }: Props) {
         const data = snap.data();
         setProfileData({
           name:
-            data.name || data.displayName || data.businessName || "Tydee Pro",
+            data.name || data.displayName || data.businessName || "Foona Pro",
           phone: data.phoneNumber || "No phone added",
           profileImage: data.profileImage || null,
           services: data.services || [],
@@ -253,30 +253,30 @@ export default function ProfileSettingsDrawer({ visible, onClose }: Props) {
           </Pressable>
 
           {/* FINANCIAL & PAYMENTS */}
-<Text style={styles.sectionLabel}>FINANCIAL</Text>
+          <Text style={styles.sectionLabel}>FINANCIAL</Text>
 
-<TouchableOpacity 
-  style={styles.card} 
-  onPress={() => {
-    onClose();
-    router.push("/(professional)/wallet"); // Adjust this path to where you saved the dashboard
-  }}
->
-  <View style={styles.cardHeader}>
-    <CreditCard width={18} height={18} color="#6366f1" />
-    <Text style={styles.cardTitle}>Payments & Wallet</Text>
-  </View>
-  <View style={styles.statusRow}>
-    <Text style={styles.statusLabel}>Manage cards & payouts</Text>
-    <ChevronRight width={16} height={16} color="#cbd5e1" />
-  </View>
-</TouchableOpacity>
-          
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => {
+              onClose();
+              router.push("/(professional)/wallet"); // Adjust this path to where you saved the dashboard
+            }}
+          >
+            <View style={styles.cardHeader}>
+              <CreditCard width={18} height={18} color="#6366f1" />
+              <Text style={styles.cardTitle}>Payments & Wallet</Text>
+            </View>
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>Manage cards & payouts</Text>
+              <ChevronRight width={16} height={16} color="#cbd5e1" />
+            </View>
+          </TouchableOpacity>
+
           {/* EQUIPMENT HUB SECTION */}
           <Text style={styles.sectionLabel}>RESOURCES & GEAR</Text>
-          
-          <TouchableOpacity 
-            style={styles.card} 
+
+          <TouchableOpacity
+            style={styles.card}
             onPress={() => {
               onClose();
               router.push("/(professional)/Equipment");
@@ -291,8 +291,8 @@ export default function ProfileSettingsDrawer({ visible, onClose }: Props) {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.card} 
+          <TouchableOpacity
+            style={styles.card}
             onPress={() => {
               onClose();
               router.push("/(professional)/Equipment/rental-management"); // Points to the Dashboard we just made
@@ -303,12 +303,12 @@ export default function ProfileSettingsDrawer({ visible, onClose }: Props) {
               <Text style={styles.cardTitle}>Manage My Rentals</Text>
             </View>
             <View style={styles.statusRow}>
-               <Text style={styles.statusLabel}>Active Gear</Text>
-               <Text style={styles.verified}>View Fleet</Text>
+              <Text style={styles.statusLabel}>Active Gear</Text>
+              <Text style={styles.verified}>View Fleet</Text>
             </View>
           </TouchableOpacity>
 
-              {/* ACTIONS */}
+          {/* ACTIONS */}
           <Text style={styles.sectionLabel}>SYSTEM</Text>
           <TouchableOpacity style={styles.actionRow} onPress={handleSwitchUser}>
             <Users width={18} height={18} color="#64748b" />
@@ -393,19 +393,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
- editBadge: {
-  position: "absolute",
-  bottom: 0,
-  right: 0,
-  backgroundColor: "#6366f1",
-  width: 20,
-  height: 20,
-  borderRadius: 10,
-  borderWidth: 2, // Changed from borderOuterWidth
-  borderColor: "#fff",
-  justifyContent: "center",
-  alignItems: "center",
-},
+  editBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: "#6366f1",
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2, // Changed from borderOuterWidth
+    borderColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   profileTextInfo: { flex: 1, marginLeft: 16 },
   proName: { fontSize: 18, fontWeight: "800", color: "#1e293b" },
   phoneRow: {

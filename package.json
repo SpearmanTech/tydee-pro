@@ -1,5 +1,5 @@
 {
-  "name": "tydee",
+  "name": "Foona",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
@@ -43,8 +43,10 @@
     "geofire-common": "^6.0.0",
     "install": "^0.13.0",
     "lucide-react-native": "^0.561.0",
+    "mapbox-gl": "^3.24.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-map-gl": "^8.1.1",
     "react-native": "0.81.5",
     "react-native-calendars": "^1.1314.0",
     "react-native-gesture-handler": "~2.28.0",
