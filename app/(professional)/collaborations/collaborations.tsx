@@ -7,7 +7,7 @@ import {
   ChevronRight,
   ClipboardList,
   DollarSign,
-  Layout,
+  LayoutDashboard, // 👈 FIXED ICON IMPORT
   Plus,
   Radar,
   Users,
@@ -23,14 +23,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Animated, { FadeInDown, FadeInRight } from "react-native-reanimated";
 
 export default function SquadLeadDashboard() {
   const router = useRouter();
   const [activeJobs, setActiveJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🚀 FETCH REAL SQUAD JOBS YOU LEAD
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
@@ -49,6 +47,16 @@ export default function SquadLeadDashboard() {
     return () => unsub();
   }, []);
 
+  // 🚀 WEB BACK BUTTON FIX
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      // Fallback for Web if the user refreshed the page and lost history
+      router.replace("/(professional)/dashboard");
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -56,14 +64,14 @@ export default function SquadLeadDashboard() {
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={styles.backButton}
         >
           <ArrowLeft size={22} color="#1e293b" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Squad Control</Text>
         <TouchableOpacity style={styles.historyBtn}>
-          <Layout size={20} color="#6366f1" />
+          <LayoutDashboard size={20} color="#6366f1" /> {/* 👈 FIXED ICON USAGE */}
         </TouchableOpacity>
       </View>
 
@@ -72,7 +80,7 @@ export default function SquadLeadDashboard() {
         showsVerticalScrollIndicator={false}
       >
         {/* HERO SECTION */}
-        <Animated.View entering={FadeInDown.delay(100)}>
+        <View style={styles.heroWrapper}>
           <LinearGradient
             colors={["#1e293b", "#334155"]}
             start={{ x: 0, y: 0 }}
@@ -91,9 +99,9 @@ export default function SquadLeadDashboard() {
               </View>
             </View>
           </LinearGradient>
-        </Animated.View>
+        </View>
 
-        {/* PRIMARY ACTIONS - Split into Lead and Join */}
+        {/* PRIMARY ACTIONS */}
         <View style={styles.actionButtonRow}>
           <TouchableOpacity
             style={[styles.createBtn, { flex: 1 }]}
@@ -122,11 +130,8 @@ export default function SquadLeadDashboard() {
         {loading ? (
           <ActivityIndicator color="#6366f1" style={{ marginVertical: 30 }} />
         ) : activeJobs.length > 0 ? (
-          activeJobs.map((job, index) => (
-            <Animated.View
-              key={job.id}
-              entering={FadeInRight.delay(200 + index * 100)}
-            >
+          activeJobs.map((job) => (
+            <View key={job.id}>
               <TouchableOpacity
                 style={styles.jobCard}
                 activeOpacity={0.7}
@@ -159,7 +164,7 @@ export default function SquadLeadDashboard() {
                 </View>
                 <ChevronRight size={20} color="#cbd5e1" />
               </TouchableOpacity>
-            </Animated.View>
+            </View>
           ))
         ) : (
           <View style={styles.emptyState}>
@@ -214,7 +219,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   scrollContent: { padding: 20, paddingBottom: 100 },
-  heroCard: { borderRadius: 24, padding: 25, marginBottom: 20 },
+  heroWrapper: { marginBottom: 20 },
+  heroCard: { borderRadius: 24, padding: 25 },
   statsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
