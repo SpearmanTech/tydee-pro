@@ -19,7 +19,7 @@ import {
   Calendar,
   CheckCircle,
   DollarSign,
-  HandshakeIcon,
+  Handshake,
   MapPin,
   Menu,
   ShieldCheck,
@@ -414,7 +414,7 @@ export default function ProfessionalDashboard() {
             onPress={() => router.push("/ratings")}
           />
           <NavCard
-            icon={<HandshakeIcon color="#0ea5e9" />}
+            icon={<Handshake color="#0ea5e9" />}
             label="Collabs"
             value="0"
             onPress={() => router.push("/collaborations/collaborations")}
