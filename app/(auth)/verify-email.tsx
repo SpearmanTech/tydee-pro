@@ -20,13 +20,14 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "../../context/AuthContext";
+import { useRouter } from "expo-router"; // 👈 Added Router Import
 
 export default function VerifyEmailScreen() {
   const [checking, setChecking] = useState(false);
   const [resending, setResending] = useState(false);
   
-  // We extract signOut and refreshAuthState. We DO NOT need useRouter anymore!
   const { signOut, refreshAuthState } = useAuth();
+  const router = useRouter(); // 👈 Initialized Router
 
   const checkVerification = async () => {
     setChecking(true);
@@ -34,7 +35,6 @@ export default function VerifyEmailScreen() {
       const user = auth.currentUser;
       if (!user) return;
 
-      // Force Firebase to fetch the latest emailVerified status
       await reload(user);
       await user.getIdToken(true);
 
@@ -45,7 +45,6 @@ export default function VerifyEmailScreen() {
 
         const tempSnap = await getDoc(tempRef);
 
-        // 1. Initialize the User document
         await setDoc(
           userRef,
           {
@@ -58,7 +57,6 @@ export default function VerifyEmailScreen() {
           { merge: true }
         );
 
-        // 2. Initialize the Professional document
         await setDoc(
           profRef,
           {
@@ -71,15 +69,10 @@ export default function VerifyEmailScreen() {
           { merge: true }
         );
 
-        // 3. Clean up the provisional buffer
         if (tempSnap.exists()) {
           await deleteDoc(tempRef);
         }
 
-        // 4. WAKE UP THE GATEKEEPER
-        // This updates the context state. The Gatekeeper will instantly see 
-        // user.emailVerified === true && isOnboarded === false, and will 
-        // cleanly route them to step-business-info without any race conditions.
         await refreshAuthState();
 
       } else {
@@ -112,10 +105,11 @@ export default function VerifyEmailScreen() {
     }
   };
 
-  // Note: signOut here needs to use the parameter-less function from context
+  // 🚀 The Bulletproof Sign-Out Function
   const handleSignOut = async () => {
     try {
       await signOut();
+      router.replace("/(auth)/login"); // 👈 Instantly routes back to login
     } catch (error) {
       Alert.alert("Error", "Could not sign out.");
     }
