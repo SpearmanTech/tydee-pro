@@ -105,11 +105,15 @@ export default function VerifyEmailScreen() {
     }
   };
 
+ 
   // 🚀 The Bulletproof Sign-Out Function
   const handleSignOut = async () => {
     try {
       await signOut();
-      router.replace("/(auth)/login"); // 👈 Instantly routes back to login
+      // Delay the route by 100ms so Firebase has time to clear the cache
+      setTimeout(() => {
+        router.replace("/(auth)/login"); 
+      }, 100);
     } catch (error) {
       Alert.alert("Error", "Could not sign out.");
     }
@@ -224,6 +228,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 40,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    zIndex: 9999,      // 👈 Forces button to the absolute front
+    elevation: 9999,   // 👈 Forces button to front on Android
+    backgroundColor: "#fff", // 👈 Prevents transparent hitbox overlaps
+    borderRadius: 12,
   },
   logoutText: { color: "#94a3b8", fontWeight: "600", marginLeft: 8 },
 });
