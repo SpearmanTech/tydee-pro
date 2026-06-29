@@ -1,15 +1,10 @@
 import { auth, db, storage, functions } from "@/firebase/firebase";
 import * as ImagePicker from "expo-image-picker";
-import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
-import {
-  ArrowLeft,
-  Camera,
-  ShieldCheck,
-} from "lucide-react-native";
+import { ArrowLeft, Camera, ShieldCheck } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -25,11 +20,30 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useAuth } from "../../../context/AuthContext";
 
+// Only import WebBrowser on native — avoids warnings on web
+const WebBrowser =
+  Platform.OS !== "web" ? require("expo-web-browser") : null;
+
+type UploadStep =
+  | "idle"
+  | "uploading-photo"
+  | "creating-session"
+  | "redirecting";
+
+const STEP_LABELS: Record<UploadStep, string> = {
+  idle: "",
+  "uploading-photo": "Uploading your photo…",
+  "creating-session": "Preparing secure verification…",
+  redirecting: "Redirecting to ID check…",
+};
+
 export default function StepIdentity() {
   const { signOut } = useAuth();
   const [profileImg, setProfileImg] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [uploadStep, setUploadStep] = useState<UploadStep>("idle");
   const router = useRouter();
+
+  const isUploading = uploadStep !== "idle";
 
   const handleBack = () => {
     Alert.alert("Exit Setup?", "You will be signed out.", [
@@ -52,7 +66,7 @@ export default function StepIdentity() {
       return;
     }
 
-    let result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
@@ -64,57 +78,84 @@ export default function StepIdentity() {
     }
   };
 
+  const uploadProfileImage = async (uid: string): Promise<string> => {
+    setUploadStep("uploading-photo");
+
+    const profRes = await fetch(profileImg!);
+    const profBlob = await profRes.blob();
+
+    try {
+      const profRef = ref(storage, `profileImages/${uid}.jpg`);
+      await uploadBytes(profRef, profBlob);
+      const profUrl = await getDownloadURL(profRef);
+
+      await updateDoc(doc(db, "professionals", uid), {
+        profileImage: profUrl,
+        updatedAt: serverTimestamp(),
+      });
+
+      return profUrl;
+    } finally {
+      // Safe to close blob after upload completes (not before)
+      profBlob.close?.();
+    }
+  };
+
+  const createDiditSession = async (): Promise<string> => {
+    setUploadStep("creating-session");
+
+    const initDiditSession = httpsCallable(functions, "createDiditSession");
+    const response = await initDiditSession({
+      platform: Platform.OS === "web" ? "web" : "native",
+    });
+
+    const { url } = response.data as { url: string };
+    if (!url) throw new Error("No verification URL returned from session.");
+    return url;
+  };
+
   const handleFinish = async () => {
     if (!profileImg) {
       Alert.alert("Missing Photo", "Please upload a profile photo to continue.");
       return;
     }
 
-    setUploading(true);
     try {
       const user = auth.currentUser;
       if (!user) throw new Error("No authenticated user");
 
-      // 1. Upload the Profile Picture to Firebase
-      const profRes = await fetch(profileImg);
-      const profBlob = await profRes.blob();
-      const profRef = ref(storage, `profileImages/${user.uid}.jpg`);
-      await uploadBytes(profRef, profBlob);
-      const profUrl = await getDownloadURL(profRef);
+      // Step 1: Upload photo (must complete before redirect on web)
+      await uploadProfileImage(user.uid);
 
-      await updateDoc(doc(db, "professionals", user.uid), {
-        profileImage: profUrl,
-        updatedAt: serverTimestamp(),
-      });
-      profBlob.close();
+      // Step 2: Create Didit session
+      const url = await createDiditSession();
 
-      // 2. Call your Didit backend function
-      const initDiditSession = httpsCallable(functions, "createDiditSession");
-      
-      const response = await initDiditSession({ 
-        platform: Platform.OS === "web" ? "web" : "native" 
-      });
-      
-      const { url } = response.data as { url: string };
+      // Step 3: Route to Didit based on platform
+      setUploadStep("redirecting");
 
-      // 3. Route the user based on their platform
       if (Platform.OS === "web") {
+        // Give the "Redirecting…" label a beat to render before the tab navigates
+        await new Promise((resolve) => setTimeout(resolve, 300));
         window.location.href = url;
       } else {
-        const result = await WebBrowser.openAuthSessionAsync(url, "foona://");
+        const result = await WebBrowser.openAuthSessionAsync(
+          url,
+          "foona://"
+        );
         if (result.type === "success") {
           router.push("/step-clearance");
+        } else {
+          // User cancelled or browser closed — reset so they can retry
+          setUploadStep("idle");
         }
       }
-
     } catch (error: any) {
       console.error("DIDIT LAUNCH ERROR:", error);
+      setUploadStep("idle");
       Alert.alert(
         "Verification Error",
         "Could not start the secure ID check. Please try again."
       );
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -127,7 +168,7 @@ export default function StepIdentity() {
       <TouchableOpacity
         style={styles.backButton}
         onPress={handleBack}
-        disabled={uploading}
+        disabled={isUploading}
       >
         <ArrowLeft size={24} color="#111827" />
       </TouchableOpacity>
@@ -136,10 +177,7 @@ export default function StepIdentity() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollInner}
       >
-        <Animated.View
-          entering={FadeInDown.duration(800)}
-          style={styles.header}
-        >
+        <Animated.View entering={FadeInDown.duration(800)} style={styles.header}>
           <Text style={styles.stepIndicator}>STEP 3 OF 4</Text>
           <Text style={styles.title}>Identity Verification</Text>
           <Text style={styles.subtitle}>
@@ -152,7 +190,7 @@ export default function StepIdentity() {
           <TouchableOpacity
             onPress={pickImage}
             style={[styles.uploadCircle, profileImg && styles.activeBorder]}
-            disabled={uploading}
+            disabled={isUploading}
           >
             {profileImg ? (
               <Image source={{ uri: profileImg }} style={styles.image} />
@@ -176,13 +214,18 @@ export default function StepIdentity() {
           <TouchableOpacity
             style={[
               styles.finishBtn,
-              (!profileImg || uploading) && styles.disabled,
+              (!profileImg || isUploading) && styles.disabled,
             ]}
             onPress={handleFinish}
-            disabled={uploading}
+            disabled={!profileImg || isUploading}
           >
-            {uploading ? (
-              <ActivityIndicator color="#fff" />
+            {isUploading ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator color="#fff" size="small" />
+                <Text style={styles.loadingText}>
+                  {STEP_LABELS[uploadStep]}
+                </Text>
+              </View>
             ) : (
               <Text style={styles.finishText}>Start Secure ID Verification</Text>
             )}
@@ -190,7 +233,7 @@ export default function StepIdentity() {
 
           <TouchableOpacity
             onPress={handleSkip}
-            disabled={uploading}
+            disabled={isUploading}
             style={styles.skipContainer}
           >
             <Text style={styles.skipLink}>
@@ -268,9 +311,21 @@ const styles = StyleSheet.create({
     padding: 22,
     borderRadius: 18,
     alignItems: "center",
+    minHeight: 64,
+    justifyContent: "center",
   },
   disabled: { backgroundColor: "#e2e8f0" },
   finishText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  loadingText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
   skipContainer: { marginTop: 25, alignItems: "center" },
   skipLink: {
     textAlign: "center",
