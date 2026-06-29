@@ -1,12 +1,13 @@
-import { auth, db, storage } from "@/firebase/firebase";
+import { auth, db, storage, functions } from "@/firebase/firebase";
 import * as ImagePicker from "expo-image-picker";
+import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { httpsCallable } from "firebase/functions";
 import {
   ArrowLeft,
   Camera,
-  CreditCard,
   ShieldCheck,
 } from "lucide-react-native";
 import React, { useState } from "react";
@@ -25,9 +26,8 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useAuth } from "../../../context/AuthContext";
 
 export default function StepIdentity() {
-  const { setIsOnboarded, signOut } = useAuth();
+  const { signOut } = useAuth();
   const [profileImg, setProfileImg] = useState<string | null>(null);
-  const [idImg, setIdImg] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const router = useRouter();
 
@@ -45,7 +45,7 @@ export default function StepIdentity() {
     ]);
   };
 
-  const pickImage = async (type: "profile" | "id") => {
+  const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       Alert.alert("Permission", "We need access to your photos.");
@@ -55,61 +55,70 @@ export default function StepIdentity() {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: type === "profile" ? [1, 1] : [16, 10],
+      aspect: [1, 1],
       quality: 0.7,
     });
 
     if (!result.canceled) {
-      if (type === "profile") setProfileImg(result.assets[0].uri);
-      else setIdImg(result.assets[0].uri);
+      setProfileImg(result.assets[0].uri);
     }
   };
 
   const handleFinish = async () => {
-    // If skipping or incomplete, we still want to move to the next step,
-    // but the actual upload only happens if images exist.
-    if (profileImg && idImg) {
-      setUploading(true);
-      try {
-        const user = auth.currentUser;
-        if (!user) throw new Error("No authenticated user");
-
-        const profRes = await fetch(profileImg);
-        const profBlob = await profRes.blob();
-        const profRef = ref(storage, `profileImages/${user.uid}.jpg`);
-        await uploadBytes(profRef, profBlob);
-        const profUrl = await getDownloadURL(profRef);
-
-        const idRes = await fetch(idImg);
-        const idBlob = await idRes.blob();
-        const idRef = ref(storage, `verifications/${user.uid}/identity.jpg`);
-        await uploadBytes(idRef, idBlob);
-        const idUrl = await getDownloadURL(idRef);
-
-        await updateDoc(doc(db, "professionals", user.uid), {
-          profileImage: profUrl,
-          "verification.identity": {
-            status: "submitted",
-            documentUrl: idUrl,
-            submittedAt: serverTimestamp(),
-          },
-          updatedAt: serverTimestamp(),
-        });
-
-        profBlob.close();
-        idBlob.close();
-      } catch (error: any) {
-        console.error("UPLOAD ERROR:", error);
-        Alert.alert(
-          "Error",
-          "Upload failed. You can skip and try again later from settings.",
-        );
-        setUploading(false);
-        return;
-      }
+    if (!profileImg) {
+      Alert.alert("Missing Photo", "Please upload a profile photo to continue.");
+      return;
     }
 
-    setUploading(false);
+    setUploading(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error("No authenticated user");
+
+      // 1. Upload the Profile Picture to Firebase
+      const profRes = await fetch(profileImg);
+      const profBlob = await profRes.blob();
+      const profRef = ref(storage, `profileImages/${user.uid}.jpg`);
+      await uploadBytes(profRef, profBlob);
+      const profUrl = await getDownloadURL(profRef);
+
+      await updateDoc(doc(db, "professionals", user.uid), {
+        profileImage: profUrl,
+        updatedAt: serverTimestamp(),
+      });
+      profBlob.close();
+
+      // 2. Call your Didit backend function
+      const initDiditSession = httpsCallable(functions, "createDiditSession");
+      
+      const response = await initDiditSession({ 
+        platform: Platform.OS === "web" ? "web" : "native" 
+      });
+      
+      const { url } = response.data as { url: string };
+
+      // 3. Route the user based on their platform
+      if (Platform.OS === "web") {
+        window.location.href = url;
+      } else {
+        const result = await WebBrowser.openAuthSessionAsync(url, "foona://");
+        if (result.type === "success") {
+          router.push("/step-clearance");
+        }
+      }
+
+    } catch (error: any) {
+      console.error("DIDIT LAUNCH ERROR:", error);
+      Alert.alert(
+        "Verification Error",
+        "Could not start the secure ID check. Please try again."
+      );
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSkip = () => {
     router.push("/step-clearance");
   };
 
@@ -134,14 +143,14 @@ export default function StepIdentity() {
           <Text style={styles.stepIndicator}>STEP 3 OF 4</Text>
           <Text style={styles.title}>Identity Verification</Text>
           <Text style={styles.subtitle}>
-            Upload a profile photo and a valid ID to continue.
+            Upload a profile photo and verify your ID securely.
           </Text>
         </Animated.View>
 
         <View style={styles.center}>
           <Text style={styles.label}>PROFESSIONAL PROFILE PHOTO</Text>
           <TouchableOpacity
-            onPress={() => pickImage("profile")}
+            onPress={pickImage}
             style={[styles.uploadCircle, profileImg && styles.activeBorder]}
             disabled={uploading}
           >
@@ -155,30 +164,10 @@ export default function StepIdentity() {
             )}
           </TouchableOpacity>
 
-          <Text style={[styles.label, { marginTop: 40 }]}>
-            GOVERNMENT ISSUED ID
-          </Text>
-          <TouchableOpacity
-            onPress={() => pickImage("id")}
-            style={[styles.idBox, idImg && styles.activeBorder]}
-            disabled={uploading}
-          >
-            {idImg ? (
-              <Image source={{ uri: idImg }} style={styles.idImage} />
-            ) : (
-              <View style={styles.placeholder}>
-                <CreditCard size={30} color="#6366f1" />
-                <Text style={styles.placeholderText}>
-                  Upload ID (Passport/License)
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
           <View style={styles.trustBadge}>
             <ShieldCheck size={16} color="#10b981" />
             <Text style={styles.infoText}>
-              Encrypted & secure verification.
+              ID Verification handled securely by Didit.
             </Text>
           </View>
         </View>
@@ -187,7 +176,7 @@ export default function StepIdentity() {
           <TouchableOpacity
             style={[
               styles.finishBtn,
-              (!profileImg || !idImg || uploading) && styles.disabled,
+              (!profileImg || uploading) && styles.disabled,
             ]}
             onPress={handleFinish}
             disabled={uploading}
@@ -195,12 +184,12 @@ export default function StepIdentity() {
             {uploading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.finishText}>Next Clearance</Text>
+              <Text style={styles.finishText}>Start Secure ID Verification</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleFinish}
+            onPress={handleSkip}
             disabled={uploading}
             style={styles.skipContainer}
           >
@@ -258,32 +247,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  idBox: {
-    width: "100%",
-    height: 180,
-    borderRadius: 20,
-    backgroundColor: "#f8fafc",
-    borderWidth: 2,
-    borderColor: "#e2e8f0",
-    borderStyle: "dashed",
-    justifyContent: "center",
-    alignItems: "center",
-    overflow: "hidden",
-  },
   activeBorder: {
     borderStyle: "solid",
     borderColor: "#6366f1",
     backgroundColor: "#f5f3ff",
   },
   image: { width: "100%", height: "100%", borderRadius: 70 },
-  idImage: { width: "100%", height: "100%" },
   placeholder: { alignItems: "center", gap: 8 },
   placeholderText: { color: "#6366f1", fontWeight: "800", fontSize: 13 },
   trustBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 25,
+    marginTop: 40,
   },
   infoText: { color: "#64748b", fontSize: 13, fontWeight: "600" },
   footer: { paddingHorizontal: 30, marginTop: 40 },
