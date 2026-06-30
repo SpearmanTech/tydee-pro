@@ -1,14 +1,15 @@
-import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApp, getApps, initializeApp } from "firebase/app";
 import {
   getAuth,
-  initializeAuth,
   getReactNativePersistence,
+  initializeAuth,
 } from "firebase/auth";
-// Import initializeFirestore instead of getFirestore
-import { getFirestore } from "firebase/firestore"; 
+import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { Platform } from "react-native";
+
+import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -25,12 +26,16 @@ export const auth =
   Platform.OS === "web"
     ? getAuth(app)
     : initializeAuth(app, {
-        persistence: getReactNativePersistence(AsyncStorage),
-      });
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
 
-// 🗄️ DB — Using getFirestore to prevent Assertion Errors
+// 🗄️ DB
 export const db = getFirestore(app);
 
+// 📦 STORAGE
 export const storage = getStorage(app);
+
+// 🚀 FUNCTIONS (ADDED: This powers the Didit httpsCallable)
+export const functions = getFunctions(app);
 
 export default app;
