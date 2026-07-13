@@ -155,6 +155,18 @@ const STATUS_CONFIG: Record<
   },
 };
 
+// Fallback used whenever Firestore contains a status value that doesn't
+// match one of the keys above (e.g. an unmapped/new status from Didit's webhook)
+const FALLBACK_STATUS_CONFIG = {
+  label: "Status unavailable",
+  description: "We couldn't recognize your verification status. Please try again or contact support.",
+  color: "#4B5563",
+  bg: "#F9FAFB",
+  border: "#E5E7EB",
+  icon: AlertCircle,
+  canRetry: true,
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function VerificationScreen() {
@@ -245,7 +257,13 @@ export default function VerificationScreen() {
   }
 
   const currentStatus = state.status ?? "not_started";
-  const config = STATUS_CONFIG[currentStatus];
+  const config = STATUS_CONFIG[currentStatus] ?? FALLBACK_STATUS_CONFIG;
+
+  if (!STATUS_CONFIG[currentStatus]) {
+    console.warn(
+      `Unrecognized verification status from Firestore: "${currentStatus}". Falling back to default display.`
+    );
+  }
   const isApproved = currentStatus === "approved";
   const showLaunchButton = !isApproved;
   const buttonLabel = getButtonLabel(currentStatus, state.launching);
