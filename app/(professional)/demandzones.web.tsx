@@ -8,7 +8,7 @@ import {
   Users,
   X
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,7 +22,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Heatmap, Marker, Region } from "react-native-maps";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -54,21 +53,13 @@ const BUDGET_OPTIONS = [
 
 export default function DemandZonesWeb() {
   const {
-    demandZones, filteredJobs, squadJobs, loading, stats,
+    filteredJobs, squadJobs, loading, stats,
     filters, setFilter, submitBid, joinSquad, currentUid,
   } = useDemandData();
 
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
 
-  // react-native-maps uses lat/lng + deltas rather than mapbox's
-  // longitude/latitude/zoom, but we keep this shape so the rest of the
-  // screen (zoom-based show/hide logic, stats, etc.) doesn't need to change.
-  const [viewState, setViewState] = useState({
-    longitude: 31.0292,
-    latitude: -29.8579,
-    zoom: 11,
-  });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [squadPanelOpen, setSquadPanelOpen] = useState(false);
 
@@ -103,21 +94,6 @@ export default function DemandZonesWeb() {
       setBidAmount("");
     }, 280);
   }, [sheetY]);
-
-  // react-native-maps' Heatmap component takes weighted points directly,
-  // no GeoJSON Source/Layer plumbing needed like mapbox did.
-  const heatmapPoints = useMemo(
-    () =>
-      demandZones.map((z) => ({
-        latitude: z.lat,
-        longitude: z.lng,
-        weight: z.count,
-      })),
-    [demandZones],
-  );
-
-  const showPins = viewState.zoom >= 12;
-  const showLabels = viewState.zoom >= 14;
 
   const handleBidSubmit = async () => {
     if (!selectedJob || !bidAmount || isSubmitting) return;
@@ -251,67 +227,51 @@ export default function DemandZonesWeb() {
         </Animated.View>
       )}
 
-      {/* ══ NATIVE MAP (react-native-maps) ═══════════════════════════════════ */}
-      <MapView
-        style={{ width: "100%", height: "100%" }}
-        initialRegion={{
-          latitude: viewState.latitude,
-          longitude: viewState.longitude,
-          latitudeDelta: 0.1,
-          longitudeDelta: 0.1,
-        }}
-        onRegionChangeComplete={(region: Region) => {
-          // react-native-maps reports deltas, not a zoom level. We derive
-          // an approximate zoom from longitudeDelta so the existing
-          // showPins/showLabels zoom-threshold logic keeps working as-is.
-          const approxZoom = Math.log2(360 / region.longitudeDelta);
-          setViewState({
-            latitude: region.latitude,
-            longitude: region.longitude,
-            zoom: approxZoom,
-          });
-        }}
+      {/* ══ WEB LIST FALLBACK (Replaces MapView) ═════════════════════════════ */}
+      <ScrollView
+        style={S.webListContainer}
+        contentContainerStyle={S.webListContent}
+        showsVerticalScrollIndicator={false}
       >
-        {heatmapPoints.length > 0 && (
-          <Heatmap
-            points={heatmapPoints}
-            radius={50}
-            opacity={0.7}
-            gradient={{
-              colors: ["#6366f1", "#8b5cf6", "#ec4899", "#10b981"],
-              startPoints: [0.15, 0.35, 0.6, 0.8],
-              colorMapSize: 256,
-            }}
-          />
-        )}
-
-        {showPins &&
+        {filteredJobs.length === 0 ? (
+          <View style={S.webEmptyState}>
+            <MapPin size={32} color="#334155" />
+            <Text style={S.webEmptyText}>No jobs match your current filters.</Text>
+          </View>
+        ) : (
           filteredJobs.map((job) => {
-            if (!job.location?.lat || !job.location?.lng) return null;
             const myBid = alreadyBid(job);
             const color = myBid ? "#10b981" : getCategoryColor(job.subService ?? job.service);
             const budget = job.budget ?? job.customerInitialBid ?? 0;
+
             return (
-              <Marker
+              <TouchableOpacity
                 key={job.id}
-                coordinate={{
-                  latitude: job.location.lat,
-                  longitude: job.location.lng,
-                }}
+                style={S.webJobCard}
                 onPress={() => openJobSheet(job)}
+                activeOpacity={0.8}
               >
-                <View style={[S.pin, { backgroundColor: color }]}>
-                  {showLabels ? (
-                    <Text style={S.pinLabel}>{formatZAR(budget).replace("R ", "R")}</Text>
-                  ) : (
-                    <View style={[S.pinDot, { backgroundColor: "rgba(255,255,255,0.9)" }]} />
-                  )}
-                  {myBid && <View style={S.bidCheckDot} />}
+                <View style={[S.webJobAccent, { backgroundColor: color }]} />
+                <View style={S.webJobInfo}>
+                  <Text style={S.webJobTitle} numberOfLines={1}>
+                    {job.title ?? job.subService ?? "Service Job"}
+                  </Text>
+                  <View style={S.webJobMeta}>
+                    <MapPin size={12} color="#64748b" />
+                    <Text style={S.webJobMetaText}>
+                      {job.location?.city ?? "Durban"} · {getTimeAgo(job.createdAt)}
+                    </Text>
+                  </View>
                 </View>
-              </Marker>
+                <View style={S.webJobRight}>
+                  <Text style={S.webJobBudget}>{formatZAR(budget)}</Text>
+                  {myBid && <Text style={S.webJobBidText}>Bid placed</Text>}
+                </View>
+              </TouchableOpacity>
             );
-          })}
-      </MapView>
+          })
+        )}
+      </ScrollView>
 
       {/* ══ FLOATING STATS CARD ══════════════════════════════════════════════ */}
       <Animated.View entering={FadeIn.delay(300)} style={S.statsCard}>
@@ -576,10 +536,10 @@ const S = StyleSheet.create({
     alignItems: "center",
     padding: 14,
     borderRadius: 20,
-    elevation: 12,
     shadowColor: "#1e1b4b",
     shadowOpacity: 0.45,
     shadowRadius: 24,
+    elevation: 12,
   },
   livePill: {
     flexDirection: "row",
@@ -719,38 +679,75 @@ const S = StyleSheet.create({
     color: "#fff",
   },
 
-  // ── Map Pins ───────────────────────────────────────────────────────────────
-  pin: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 100,
+  // ── Web Fallback List ──────────────────────────────────────────────────────
+  webListContainer: {
+    flex: 1,
+  },
+  webListContent: {
+    paddingTop: Platform.OS === "ios" ? 140 : 120, // Clear the floating header
+    paddingBottom: 160, // Clear the floating stats card
+    paddingHorizontal: 20,
+    gap: 16,
+  },
+  webEmptyState: {
     alignItems: "center",
+    justifyContent: "center",
+    marginTop: 100,
+    gap: 16,
+  },
+  webEmptyText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#475569",
+  },
+  webJobCard: {
     flexDirection: "row",
-    gap: 5,
-    shadowColor: "#000",
-    shadowOpacity: 0.55,
-    shadowRadius: 10,
-    elevation: 6,
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.85)",
+    backgroundColor: "#1a2540",
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#243352",
   },
-  pinDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  webJobAccent: {
+    width: 6,
   },
-  pinLabel: {
-    fontSize: 11,
+  webJobInfo: {
+    flex: 1,
+    padding: 16,
+    justifyContent: "center",
+  },
+  webJobTitle: {
+    fontSize: 15,
     fontWeight: "800",
-    color: "#fff",
-    letterSpacing: 0.3,
+    color: "#f1f5f9",
+    marginBottom: 6,
   },
-  bidCheckDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: "#fff",
-    opacity: 0.9,
+  webJobMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  webJobMetaText: {
+    fontSize: 12,
+    color: "#94a3b8",
+    fontWeight: "500",
+  },
+  webJobRight: {
+    padding: 16,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  webJobBudget: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#10b981",
+  },
+  webJobBidText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#6366f1",
+    marginTop: 4,
+    textTransform: "uppercase",
   },
 
   // ── Floating Stats Card ────────────────────────────────────────────────────
