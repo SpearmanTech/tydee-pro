@@ -1,21 +1,24 @@
-"use client";
-
-/**
- * Verification.tsx
- *
- * Calls `createDiditSession` Firebase Cloud Function directly.
- * Reads live status from Firestore at:
- *   professionals/{uid}/verification.identity.status
- *
- * Status strings match what diditWebhook.ts writes (lowercased + underscored):
- *   not_started | in_progress | awaiting_user | in_review | approved |
- *   declined | resubmitted | abandoned | expired | kyc_expired
- */
-
 import React, { useEffect, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Linking,
+  ScrollView,
+} from "react-native";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { getFirestore, doc, onSnapshot } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { doc, onSnapshot } from "firebase/firestore";
+import { auth, db } from "@/firebase/firebase";
+import {
+  Check,
+  X,
+  Clock,
+  AlertCircle,
+  Circle,
+  Loader,
+} from "lucide-react-native";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,7 +49,7 @@ interface VerificationState {
   error: string | null;
 }
 
-// ─── Status config ────────────────────────────────────────────────────────────
+// ─── Status Config ────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<
   NonNullable<DiditStatus>,
@@ -56,17 +59,17 @@ const STATUS_CONFIG: Record<
     color: string;
     bg: string;
     border: string;
-    icon: React.ReactNode;
+    icon: any;
     canRetry: boolean;
   }
 > = {
   not_started: {
     label: "Not started",
     description: "Your identity has not been verified yet.",
-    color: "#6B7280",
+    color: "#4B5563",
     bg: "#F9FAFB",
     border: "#E5E7EB",
-    icon: <IconCircle />,
+    icon: Circle,
     canRetry: false,
   },
   in_progress: {
@@ -75,7 +78,7 @@ const STATUS_CONFIG: Record<
     color: "#2563EB",
     bg: "#EFF6FF",
     border: "#BFDBFE",
-    icon: <IconSpinner />,
+    icon: Loader,
     canRetry: true,
   },
   awaiting_user: {
@@ -84,7 +87,7 @@ const STATUS_CONFIG: Record<
     color: "#D97706",
     bg: "#FFFBEB",
     border: "#FDE68A",
-    icon: <IconWarning />,
+    icon: AlertCircle,
     canRetry: true,
   },
   in_review: {
@@ -93,7 +96,7 @@ const STATUS_CONFIG: Record<
     color: "#7C3AED",
     bg: "#F5F3FF",
     border: "#DDD6FE",
-    icon: <IconClock />,
+    icon: Clock,
     canRetry: false,
   },
   approved: {
@@ -102,7 +105,7 @@ const STATUS_CONFIG: Record<
     color: "#059669",
     bg: "#ECFDF5",
     border: "#A7F3D0",
-    icon: <IconCheck />,
+    icon: Check,
     canRetry: false,
   },
   declined: {
@@ -111,7 +114,7 @@ const STATUS_CONFIG: Record<
     color: "#DC2626",
     bg: "#FEF2F2",
     border: "#FECACA",
-    icon: <IconX />,
+    icon: X,
     canRetry: true,
   },
   resubmitted: {
@@ -120,25 +123,25 @@ const STATUS_CONFIG: Record<
     color: "#7C3AED",
     bg: "#F5F3FF",
     border: "#DDD6FE",
-    icon: <IconClock />,
+    icon: Clock,
     canRetry: false,
   },
   abandoned: {
     label: "Session abandoned",
     description: "Your previous session was not completed. Start a new session to verify.",
-    color: "#6B7280",
+    color: "#4B5563",
     bg: "#F9FAFB",
     border: "#E5E7EB",
-    icon: <IconCircle />,
+    icon: Circle,
     canRetry: true,
   },
   expired: {
     label: "Session expired",
     description: "Your verification session has expired. Start a new session to continue.",
-    color: "#6B7280",
+    color: "#4B5563",
     bg: "#F9FAFB",
     border: "#E5E7EB",
-    icon: <IconCircle />,
+    icon: Circle,
     canRetry: true,
   },
   kyc_expired: {
@@ -147,18 +150,14 @@ const STATUS_CONFIG: Record<
     color: "#D97706",
     bg: "#FFFBEB",
     border: "#FDE68A",
-    icon: <IconWarning />,
+    icon: AlertCircle,
     canRetry: true,
   },
 };
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function Verification() {
-  const auth = getAuth();
-  const db = getFirestore();
-  const functions = getFunctions();
-
+export default function VerificationScreen() {
   const [state, setState] = useState<VerificationState>({
     status: null,
     sessionId: null,
@@ -207,45 +206,41 @@ export default function Verification() {
     );
 
     return () => unsub();
-  }, [auth, db]);
+  }, []);
 
   const launchVerification = useCallback(async () => {
     setState((s) => ({ ...s, launching: true, error: null }));
     try {
+      const functions = getFunctions();
       const createSession = httpsCallable<
         { platform: "web" | "native" },
         CreateDiditSessionResult
       >(functions, "createDiditSession");
 
-      const result = await createSession({ platform: "web" });
+      // Request native platform so the webhook returns foona:// deep link
+      const result = await createSession({ platform: "native" });
       const { url } = result.data;
 
       if (!url) throw new Error("No verification URL returned.");
 
-      // Open in a new tab so the user returns to the dashboard naturally
-      window.open(url, "_blank", "noopener,noreferrer");
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Could not start verification. Please try again.";
+      // Open mobile browser securely
+      await Linking.openURL(url);
+    } catch (err: any) {
+      const message = err.message || "Could not start verification. Please try again.";
       setState((s) => ({ ...s, error: message }));
     } finally {
       setState((s) => ({ ...s, launching: false }));
     }
-  }, [functions]);
+  }, []);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   if (state.loading) {
     return (
-      <div style={styles.root}>
-        <div style={styles.card}>
-          <div style={styles.skeletonHeader} />
-          <div style={styles.skeletonLine} />
-          <div style={{ ...styles.skeletonLine, width: "60%" }} />
-        </div>
-      </div>
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#111827" />
+        <Text style={{ marginTop: 12, color: "#6b7280" }}>Checking status...</Text>
+      </View>
     );
   }
 
@@ -256,131 +251,122 @@ export default function Verification() {
   const buttonLabel = getButtonLabel(currentStatus, state.launching);
 
   return (
-    <div style={styles.root}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* ── Header ── */}
-      <div style={styles.header}>
-        <div>
-          <h2 style={styles.title}>Identity Verification</h2>
-          <p style={styles.subtitle}>
+      <View style={styles.header}>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.title}>Identity Verification</Text>
+          <Text style={styles.subtitle}>
             Powered by Didit — required to accept bookings on Foona
-          </p>
-        </div>
+          </Text>
+        </View>
         {isApproved && (
-          <div style={styles.verifiedBadge}>
-            <IconCheck size={14} />
-            <span>Verified</span>
-          </div>
+          <View style={styles.verifiedBadge}>
+            <Check size={14} color="#059669" />
+            <Text style={styles.verifiedText}>Verified</Text>
+          </View>
         )}
-      </div>
+      </View>
 
       {/* ── Status card ── */}
-      <div
-        style={{
-          ...styles.statusCard,
-          background: config.bg,
-          borderColor: config.border,
-        }}
+      <View
+        style={[
+          styles.statusCard,
+          { backgroundColor: config.bg, borderColor: config.border },
+        ]}
       >
-        <div style={styles.statusRow}>
-          <div style={{ ...styles.statusIcon, color: config.color }}>
-            {config.icon}
-          </div>
-          <div style={styles.statusText}>
-            <span style={{ ...styles.statusLabel, color: config.color }}>
+        <View style={styles.statusRow}>
+          <View style={{ marginTop: 2 }}>
+            <config.icon size={22} color={config.color} />
+          </View>
+          <View style={styles.statusTextContainer}>
+            <Text style={[styles.statusLabel, { color: config.color }]}>
               {config.label}
-            </span>
-            <span style={styles.statusDescription}>{config.description}</span>
-          </div>
-        </div>
+            </Text>
+            <Text style={styles.statusDescription}>{config.description}</Text>
+          </View>
+        </View>
 
         {/* Progress steps — only shown while active */}
         {["in_progress", "awaiting_user", "resubmitted", "in_review"].includes(
           currentStatus
         ) && <ProgressSteps status={currentStatus} />}
-      </div>
+      </View>
 
       {/* ── What we verify section ── */}
       {!isApproved && (
-        <div style={styles.requirementsCard}>
-          <p style={styles.requirementsTitle}>What you'll need</p>
-          <div style={styles.requirementsList}>
-            {REQUIREMENTS.map((req) => (
-              <div key={req.label} style={styles.requirementItem}>
-                <div style={styles.requirementDot} />
-                <div>
-                  <span style={styles.requirementLabel}>{req.label}</span>
-                  <span style={styles.requirementNote}>{req.note}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <View style={styles.requirementsCard}>
+          <Text style={styles.requirementsTitle}>What you'll need</Text>
+          {REQUIREMENTS.map((req, index) => (
+            <View
+              key={req.label}
+              style={[
+                styles.requirementItem,
+                index === REQUIREMENTS.length - 1 && { marginBottom: 0 },
+              ]}
+            >
+              <View style={styles.requirementDot} />
+              <View style={styles.requirementTextContainer}>
+                <Text style={styles.requirementLabel}>{req.label}</Text>
+                <Text style={styles.requirementNote}>{req.note}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
       )}
 
       {/* ── Approved state — details ── */}
       {isApproved && state.sessionId && (
-        <div style={styles.approvedDetails}>
-          <div style={styles.approvedRow}>
-            <span style={styles.approvedKey}>Session ID</span>
-            <span style={styles.approvedValue}>{state.sessionId}</span>
-          </div>
-          <div style={styles.approvedRow}>
-            <span style={styles.approvedKey}>Status</span>
-            <span style={{ ...styles.approvedValue, color: "#059669" }}>
-              Active
-            </span>
-          </div>
-        </div>
+        <View style={styles.approvedDetails}>
+          <View style={styles.approvedRow}>
+            <Text style={styles.approvedKey}>Session ID</Text>
+            <Text style={styles.approvedValue} numberOfLines={1} ellipsizeMode="middle">
+              {state.sessionId}
+            </Text>
+          </View>
+          <View style={styles.approvedRow}>
+            <Text style={styles.approvedKey}>Status</Text>
+            <Text style={[styles.approvedValue, { color: "#059669" }]}>Active</Text>
+          </View>
+        </View>
       )}
 
-      {/* ── Error ── */}
+      {/* ── Error Banner ── */}
       {state.error && (
-        <div style={styles.errorBanner}>
-          <IconX size={16} />
-          <span>{state.error}</span>
-        </div>
+        <View style={styles.errorBanner}>
+          <X size={16} color="#DC2626" />
+          <Text style={styles.errorText}>{state.error}</Text>
+        </View>
       )}
 
       {/* ── CTA ── */}
       {showLaunchButton && (
-        <button
-          style={{
-            ...styles.ctaButton,
-            opacity: state.launching ? 0.7 : 1,
-            cursor: state.launching ? "not-allowed" : "pointer",
-          }}
-          onClick={launchVerification}
+        <TouchableOpacity
+          style={[styles.ctaButton, state.launching && styles.ctaButtonDisabled]}
+          onPress={launchVerification}
           disabled={state.launching}
         >
           {state.launching ? (
-            <>
-              <IconSpinner size={18} />
-              <span>Opening Didit…</span>
-            </>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <ActivityIndicator color="#ffffff" size="small" />
+              <Text style={styles.ctaButtonText}>Opening Didit…</Text>
+            </View>
           ) : (
-            <span>{buttonLabel}</span>
+            <Text style={styles.ctaButtonText}>{buttonLabel}</Text>
           )}
-        </button>
+        </TouchableOpacity>
       )}
 
       {/* ── Footer note ── */}
-      <p style={styles.footerNote}>
-        Your documents are processed securely by{" "}
-        <a
-          href="https://didit.me"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={styles.footerLink}
-        >
-          Didit
-        </a>
-        . Foona does not store your identity documents.
-      </p>
-    </div>
+      <Text style={styles.footerNote}>
+        Your documents are processed securely by Didit. Foona does not store your
+        identity documents.
+      </Text>
+    </ScrollView>
   );
 }
 
-// ─── Progress steps ────────────────────────────────────────────────────────────
+// ─── Progress Steps ────────────────────────────────────────────────────────────
 
 const STEPS = ["Upload documents", "Face check", "Review"] as const;
 
@@ -394,47 +380,46 @@ const STATUS_TO_STEP: Record<string, number> = {
 function ProgressSteps({ status }: { status: string }) {
   const activeStep = STATUS_TO_STEP[status] ?? 0;
   return (
-    <div style={styles.steps}>
+    <View style={styles.stepsContainer}>
       {STEPS.map((step, i) => {
         const done = i < activeStep;
         const active = i === activeStep;
+
+        let dotColor = "#D1D5DB"; // gray-300
+        if (done) dotColor = "#059669"; // emerald-600
+        else if (active) dotColor = "#2563EB"; // blue-600
+
+        let labelColor = "#9CA3AF"; // gray-400
+        if (active) labelColor = "#111827"; // gray-900
+        else if (done) labelColor = "#374151"; // gray-700
+
         return (
           <React.Fragment key={step}>
-            <div style={styles.step}>
-              <div
-                style={{
-                  ...styles.stepDot,
-                  background: done
-                    ? "#059669"
-                    : active
-                    ? "#2563EB"
-                    : "#D1D5DB",
-                }}
-              >
-                {done ? <IconCheck size={10} color="#fff" /> : null}
-              </div>
-              <span
-                style={{
-                  ...styles.stepLabel,
-                  color: active ? "#111827" : done ? "#374151" : "#9CA3AF",
-                  fontWeight: active ? 600 : 400,
-                }}
+            <View style={styles.stepItem}>
+              <View style={[styles.stepDot, { backgroundColor: dotColor }]}>
+                {done ? <Check size={12} color="#fff" /> : null}
+              </View>
+              <Text
+                style={[
+                  styles.stepLabel,
+                  { color: labelColor, fontWeight: active ? "700" : "500" },
+                ]}
               >
                 {step}
-              </span>
-            </div>
+              </Text>
+            </View>
             {i < STEPS.length - 1 && (
-              <div
-                style={{
-                  ...styles.stepConnector,
-                  background: done ? "#059669" : "#E5E7EB",
-                }}
+              <View
+                style={[
+                  styles.stepConnector,
+                  { backgroundColor: done ? "#059669" : "#E5E7EB" },
+                ]}
               />
             )}
           </React.Fragment>
         );
       })}
-    </div>
+    </View>
   );
 }
 
@@ -478,352 +463,228 @@ function getButtonLabel(status: DiditStatus, launching: boolean): string {
   }
 }
 
-// ─── Icons ────────────────────────────────────────────────────────────────────
-
-function IconCheck({ size = 20, color = "currentColor" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <path
-        d="M4 10l4 4 8-8"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function IconX({ size = 20, color = "currentColor" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <path
-        d="M5 5l10 10M15 5L5 15"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function IconClock({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth={1.5} />
-      <path d="M10 6v4l2.5 2.5" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function IconWarning({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <path
-        d="M9.14 3.28L2.27 15a1 1 0 00.86 1.5h13.74A1 1 0 0017.73 15L10.86 3.28a1 1 0 00-1.72 0z"
-        stroke="currentColor"
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-      />
-      <path d="M10 8v4" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
-      <circle cx="10" cy="14" r="0.75" fill="currentColor" />
-    </svg>
-  );
-}
-
-function IconCircle({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth={1.5} />
-    </svg>
-  );
-}
-
-function IconSpinner({ size = 20 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 20 20"
-      fill="none"
-      style={{ animation: "theta-spin 0.8s linear infinite" }}
-    >
-      <style>{`@keyframes theta-spin { to { transform: rotate(360deg); } }`}</style>
-      <circle
-        cx="10"
-        cy="10"
-        r="8"
-        stroke="currentColor"
-        strokeWidth={1.5}
-        strokeOpacity={0.2}
-      />
-      <path
-        d="M10 2a8 8 0 018 8"
-        stroke="currentColor"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles: Record<string, React.CSSProperties> = {
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
-    maxWidth: "560px",
-    fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#ffffff",
   },
-
+  content: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  center: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
   // Header
   header: {
-    display: "flex",
-    alignItems: "flex-start",
+    flexDirection: "row",
     justifyContent: "space-between",
-    gap: "12px",
+    alignItems: "flex-start",
+    marginBottom: 24,
+  },
+  headerTextContainer: {
+    flex: 1,
+    paddingRight: 16,
   },
   title: {
-    margin: 0,
-    fontSize: "18px",
-    fontWeight: 600,
+    fontSize: 22,
+    fontWeight: "800",
     color: "#111827",
-    lineHeight: 1.3,
+    marginBottom: 6,
   },
   subtitle: {
-    margin: "4px 0 0",
-    fontSize: "13px",
-    color: "#6B7280",
-    lineHeight: 1.4,
+    fontSize: 14,
+    color: "#6b7280",
+    lineHeight: 20,
   },
   verifiedBadge: {
-    display: "flex",
+    flexDirection: "row",
     alignItems: "center",
-    gap: "5px",
-    padding: "4px 10px",
-    background: "#ECFDF5",
+    gap: 4,
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  verifiedText: {
+    fontSize: 12,
+    fontWeight: "700",
     color: "#059669",
-    border: "1px solid #A7F3D0",
-    borderRadius: "100px",
-    fontSize: "12px",
-    fontWeight: 600,
-    whiteSpace: "nowrap",
-    flexShrink: 0,
   },
 
-  // Status card
+  // Status Card
   statusCard: {
-    borderRadius: "12px",
-    border: "1.5px solid",
-    padding: "16px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 18,
+    marginBottom: 24,
   },
   statusRow: {
-    display: "flex",
+    flexDirection: "row",
     alignItems: "flex-start",
-    gap: "12px",
+    gap: 14,
   },
-  statusIcon: {
-    flexShrink: 0,
-    marginTop: "1px",
-  },
-  statusText: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "3px",
+  statusTextContainer: {
+    flex: 1,
   },
   statusLabel: {
-    fontSize: "14px",
-    fontWeight: 600,
-    lineHeight: 1.3,
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 4,
   },
   statusDescription: {
-    fontSize: "13px",
+    fontSize: 14,
     color: "#374151",
-    lineHeight: 1.5,
-  },
-
-  // Progress steps
-  steps: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0",
-    paddingTop: "4px",
-  },
-  step: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "6px",
-    flex: "0 0 auto",
-  },
-  stepDot: {
-    width: "22px",
-    height: "22px",
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepLabel: {
-    fontSize: "11px",
-    textAlign: "center",
-    whiteSpace: "nowrap",
-  },
-  stepConnector: {
-    height: "2px",
-    flex: 1,
-    marginBottom: "18px",
-    minWidth: "24px",
+    lineHeight: 20,
   },
 
   // Requirements
   requirementsCard: {
-    borderRadius: "12px",
-    border: "1.5px solid #E5E7EB",
-    padding: "16px",
-    background: "#FAFAFA",
+    backgroundColor: "#f9fafb",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 14,
+    padding: 18,
+    marginBottom: 24,
   },
   requirementsTitle: {
-    margin: "0 0 12px",
-    fontSize: "13px",
-    fontWeight: 600,
-    color: "#374151",
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#6b7280",
     textTransform: "uppercase",
-    letterSpacing: "0.05em",
-  },
-  requirementsList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
+    letterSpacing: 0.5,
+    marginBottom: 16,
   },
   requirementItem: {
-    display: "flex",
+    flexDirection: "row",
     alignItems: "flex-start",
-    gap: "10px",
+    gap: 12,
+    marginBottom: 16,
   },
   requirementDot: {
-    width: "6px",
-    height: "6px",
-    borderRadius: "50%",
-    background: "#D1D5DB",
-    marginTop: "6px",
-    flexShrink: 0,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#d1d5db",
+    marginTop: 7,
+  },
+  requirementTextContainer: {
+    flex: 1,
   },
   requirementLabel: {
-    fontSize: "13px",
-    fontWeight: 500,
+    fontSize: 15,
+    fontWeight: "700",
     color: "#111827",
-    display: "block",
-    lineHeight: 1.4,
+    marginBottom: 2,
   },
   requirementNote: {
-    fontSize: "12px",
-    color: "#6B7280",
-    display: "block",
-    lineHeight: 1.4,
+    fontSize: 13,
+    color: "#6b7280",
   },
 
-  // Approved details
-  approvedDetails: {
-    borderRadius: "12px",
-    border: "1.5px solid #E5E7EB",
-    padding: "14px 16px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
-  approvedRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "12px",
-  },
-  approvedKey: {
-    fontSize: "13px",
-    color: "#6B7280",
-  },
-  approvedValue: {
-    fontSize: "13px",
-    fontWeight: 500,
-    color: "#111827",
-    fontFamily: "monospace",
-    textAlign: "right",
-    wordBreak: "break-all",
-  },
-
-  // Error
+  // Error Banner
   errorBanner: {
-    display: "flex",
+    flexDirection: "row",
     alignItems: "center",
-    gap: "8px",
-    padding: "12px 14px",
-    background: "#FEF2F2",
-    border: "1.5px solid #FECACA",
-    borderRadius: "10px",
+    gap: 10,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 24,
+  },
+  errorText: {
+    fontSize: 14,
     color: "#DC2626",
-    fontSize: "13px",
-    lineHeight: 1.4,
+    flex: 1,
   },
 
   // CTA
   ctaButton: {
-    display: "flex",
+    backgroundColor: "#111827",
+    borderRadius: 12,
+    paddingVertical: 16,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: "8px",
-    width: "100%",
-    padding: "13px 20px",
-    background: "#111827",
-    color: "#FFFFFF",
-    border: "none",
-    borderRadius: "10px",
-    fontSize: "14px",
-    fontWeight: 600,
-    lineHeight: 1,
-    transition: "opacity 0.15s ease",
-    letterSpacing: "0.01em",
+    gap: 8,
+    marginBottom: 20,
+  },
+  ctaButtonDisabled: {
+    opacity: 0.7,
+  },
+  ctaButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
   },
 
   // Footer
   footerNote: {
-    margin: 0,
-    fontSize: "12px",
-    color: "#9CA3AF",
-    lineHeight: 1.5,
+    fontSize: 13,
+    color: "#9ca3af",
     textAlign: "center",
-  },
-  footerLink: {
-    color: "#6B7280",
-    textDecoration: "underline",
+    lineHeight: 18,
   },
 
-  // Skeleton
-  card: {
-    borderRadius: "12px",
-    border: "1.5px solid #E5E7EB",
-    padding: "20px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
+  // Steps
+  stepsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 20,
+    paddingHorizontal: 10,
   },
-  skeletonHeader: {
-    height: "18px",
-    width: "55%",
-    borderRadius: "6px",
-    background: "#F3F4F6",
-    animation: "theta-pulse 1.5s ease-in-out infinite",
+  stepItem: {
+    alignItems: "center",
+    gap: 8,
   },
-  skeletonLine: {
-    height: "14px",
-    width: "80%",
-    borderRadius: "6px",
-    background: "#F3F4F6",
-    animation: "theta-pulse 1.5s ease-in-out infinite",
+  stepDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
-};
+  stepLabel: {
+    fontSize: 12,
+  },
+  stepConnector: {
+    height: 2,
+    flex: 1,
+    marginHorizontal: 8,
+    marginBottom: 22, // Push line up slightly to center between dots
+  },
+
+  // Approved Details
+  approvedDetails: {
+    borderWidth: 1.5,
+    borderColor: "#e5e7eb",
+    borderRadius: 14,
+    padding: 16,
+    gap: 14,
+    marginBottom: 24,
+  },
+  approvedRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  approvedKey: {
+    fontSize: 14,
+    color: "#6b7280",
+  },
+  approvedValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+    flex: 1,
+    textAlign: "right",
+    marginLeft: 10,
+  },
+});
