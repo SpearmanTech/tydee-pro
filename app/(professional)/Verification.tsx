@@ -27,6 +27,7 @@ type DiditStatus =
   | "in_progress"
   | "awaiting_user"
   | "in_review"
+  | "submitted"
   | "approved"
   | "declined"
   | "resubmitted"
@@ -93,6 +94,15 @@ const STATUS_CONFIG: Record<
   in_review: {
     label: "Under review",
     description: "Your documents are being reviewed. This usually takes a few minutes.",
+    color: "#7C3AED",
+    bg: "#F5F3FF",
+    border: "#DDD6FE",
+    icon: Clock,
+    canRetry: false,
+  },
+  submitted: {
+    label: "Submitted",
+    description: "Your documents have been submitted and are queued for review.",
     color: "#7C3AED",
     bg: "#F5F3FF",
     border: "#DDD6FE",
@@ -306,7 +316,7 @@ export default function VerificationScreen() {
         </View>
 
         {/* Progress steps — only shown while active */}
-        {["in_progress", "awaiting_user", "resubmitted", "in_review"].includes(
+        {["in_progress", "awaiting_user", "resubmitted", "in_review", "submitted"].includes(
           currentStatus
         ) && <ProgressSteps status={currentStatus} />}
       </View>
@@ -393,6 +403,7 @@ const STATUS_TO_STEP: Record<string, number> = {
   awaiting_user: 1,
   resubmitted: 1,
   in_review: 2,
+  submitted: 2,
 };
 
 function ProgressSteps({ status }: { status: string }) {
@@ -476,6 +487,9 @@ function getButtonLabel(status: DiditStatus, launching: boolean): string {
     case "expired":
     case "kyc_expired":
       return "Renew verification";
+    case "in_review":
+    case "submitted":
+      return "Under review";
     default:
       return "Open verification";
   }
