@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApp, getApps, initializeApp } from "firebase/app";
+// @ts-ignore - getReactNativePersistence exists at runtime but isn't typed in this firebase version
 import {
   getAuth,
   getReactNativePersistence,
@@ -8,7 +9,6 @@ import {
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { Platform } from "react-native";
-
 import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
@@ -35,7 +35,7 @@ export const db = getFirestore(app);
 // 📦 STORAGE
 export const storage = getStorage(app);
 
-// 🚀 FUNCTIONS (ADDED: This powers the Didit httpsCallable)
+// 🚀 FUNCTIONS
 export const functions = getFunctions(app);
 
 export default app;

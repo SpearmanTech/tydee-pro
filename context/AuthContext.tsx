@@ -1,19 +1,16 @@
 "use client";
 import { auth, db } from "@/firebase/firebase";
+import { useRootNavigationState, useRouter, useSegments } from "expo-router";
 import {
-  ConfirmationResult,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
-  RecaptchaVerifier,
   sendEmailVerification,
   signInWithEmailAndPassword,
-  signInWithPhoneNumber,
-  User,
+  User
 } from "firebase/auth";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { useRouter, useSegments, useRootNavigationState } from "expo-router";
 
 type AuthContextType = {
   user: User | null;
@@ -95,14 +92,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userRef = doc(db, "users", fbUser.uid);
 
         const unsubDoc = onSnapshot(userRef, (snap) => {
-            if (snap.exists()) {
-              setIsOnboarded(snap.data().hasCompletedOnboarding === true);
-            } else {
-              setIsOnboarded(false);
-            }
-            setUser(fbUser);
-            setLoading(false); // Only unlock gatekeeper AFTER data resolves
-          },
+          if (snap.exists()) {
+            setIsOnboarded(snap.data().hasCompletedOnboarding === true);
+          } else {
+            setIsOnboarded(false);
+          }
+          setUser(fbUser);
+          setLoading(false); // Only unlock gatekeeper AFTER data resolves
+        },
           (error) => {
             setUser(fbUser);
             setLoading(false);
@@ -121,10 +118,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, pass: string) => {
     // 1. Create Auth User (triggers onAuthStateChanged automatically)
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    
+
     // 2. Send Email
     await sendEmailVerification(cred.user);
-    
+
     // 3. Create Provisional Shell
     await setDoc(doc(db, "provisional_signups", cred.user.uid), {
       uid: cred.user.uid,

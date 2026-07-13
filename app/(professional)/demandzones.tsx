@@ -1,5 +1,14 @@
-import 'mapbox-gl/dist/mapbox-gl.css';
-import React, { useCallback, useMemo, useState, useEffect } from "react";
+import { LinearGradient } from "expo-linear-gradient";
+import {
+  Calendar,
+  CheckCircle,
+  ChevronDown,
+  Filter,
+  MapPin,
+  Users,
+  X
+} from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,8 +22,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Map, { GeolocateControl, Layer, Marker, NavigationControl, Source } from "react-map-gl/mapbox";
-import { LinearGradient } from "expo-linear-gradient";
+import MapView, { Heatmap, Marker, Region } from "react-native-maps";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -23,16 +31,6 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import {
-  Calendar,
-  ChevronDown,
-  Filter,
-  MapPin,
-  Users,
-  X,
-  Activity,
-  CheckCircle,
-} from "lucide-react-native";
 
 import {
   CATEGORY_CONFIG,
@@ -46,13 +44,12 @@ import {
 } from "../../constants/useDemandData";
 
 const { height: SCREEN_H } = Dimensions.get("window");
-const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
 
 const BUDGET_OPTIONS = [
-  { label: "Any",      key: "all"       as const },
-  { label: "< R500",   key: "under500"  as const },
-  { label: "R500–1k",  key: "500to1000" as const },
-  { label: "R1k+",     key: "over1000"  as const },
+  { label: "Any", key: "all" as const },
+  { label: "< R500", key: "under500" as const },
+  { label: "R500–1k", key: "500to1000" as const },
+  { label: "R1k+", key: "over1000" as const },
 ];
 
 export default function DemandZonesWeb() {
@@ -61,25 +58,26 @@ export default function DemandZonesWeb() {
     filters, setFilter, submitBid, joinSquad, currentUid,
   } = useDemandData();
 
-  // SSR shield: prevents Node.js crash during web bundling
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
 
+  // react-native-maps uses lat/lng + deltas rather than mapbox's
+  // longitude/latitude/zoom, but we keep this shape so the rest of the
+  // screen (zoom-based show/hide logic, stats, etc.) doesn't need to change.
   const [viewState, setViewState] = useState({
     longitude: 31.0292,
-    latitude:  -29.8579,
-    zoom:      11,
+    latitude: -29.8579,
+    zoom: 11,
   });
-  const [mapLoaded, setMapLoaded]         = useState(false);
-  const [filtersOpen, setFiltersOpen]     = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [squadPanelOpen, setSquadPanelOpen] = useState(false);
 
-  const [selectedJob, setSelectedJob]       = useState<LiveJob | null>(null);
-  const [selectedSquad, setSelectedSquad]   = useState<SquadJob | null>(null);
-  const [bidAmount, setBidAmount]           = useState("");
-  const [isSubmitting, setIsSubmitting]     = useState(false);
+  const [selectedJob, setSelectedJob] = useState<LiveJob | null>(null);
+  const [selectedSquad, setSelectedSquad] = useState<SquadJob | null>(null);
+  const [bidAmount, setBidAmount] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const sheetY     = useSharedValue(SCREEN_H);
+  const sheetY = useSharedValue(SCREEN_H);
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: sheetY.value }],
   }));
@@ -106,19 +104,19 @@ export default function DemandZonesWeb() {
     }, 280);
   }, [sheetY]);
 
-  const heatmapGeoJson = useMemo(
-    () => ({
-      type: "FeatureCollection",
-      features: demandZones.map((z) => ({
-        type: "Feature",
-        properties: { intensity: z.count, value: z.totalValue },
-        geometry: { type: "Point", coordinates: [z.lng, z.lat] },
+  // react-native-maps' Heatmap component takes weighted points directly,
+  // no GeoJSON Source/Layer plumbing needed like mapbox did.
+  const heatmapPoints = useMemo(
+    () =>
+      demandZones.map((z) => ({
+        latitude: z.lat,
+        longitude: z.lng,
+        weight: z.count,
       })),
-    }),
     [demandZones],
   );
 
-  const showPins   = viewState.zoom >= 12;
+  const showPins = viewState.zoom >= 12;
   const showLabels = viewState.zoom >= 14;
 
   const handleBidSubmit = async () => {
@@ -151,8 +149,8 @@ export default function DemandZonesWeb() {
     );
   }
 
-  const alreadyBid    = (job: LiveJob)     => job.bidders?.includes(currentUid ?? "") ?? false;
-  const alreadyJoined = (squad: SquadJob)  => squad.bids?.some((b: any) => b.proId === currentUid) ?? false;
+  const alreadyBid = (job: LiveJob) => job.bidders?.includes(currentUid ?? "") ?? false;
+  const alreadyJoined = (squad: SquadJob) => squad.bids?.some((b: any) => b.proId === currentUid) ?? false;
 
   return (
     <View style={S.root}>
@@ -253,54 +251,54 @@ export default function DemandZonesWeb() {
         </Animated.View>
       )}
 
-      {/* ══ MAPBOX MAP ═══════════════════════════════════════════════════════ */}
-      <Map
-        {...viewState}
-        onMove={(e) => setViewState(e.viewState)}
-        onLoad={() => setMapLoaded(true)}
-        mapStyle="mapbox://styles/mapbox/dark-v11"
-        mapboxAccessToken={MAPBOX_TOKEN}
+      {/* ══ NATIVE MAP (react-native-maps) ═══════════════════════════════════ */}
+      <MapView
         style={{ width: "100%", height: "100%" }}
+        initialRegion={{
+          latitude: viewState.latitude,
+          longitude: viewState.longitude,
+          latitudeDelta: 0.1,
+          longitudeDelta: 0.1,
+        }}
+        onRegionChangeComplete={(region: Region) => {
+          // react-native-maps reports deltas, not a zoom level. We derive
+          // an approximate zoom from longitudeDelta so the existing
+          // showPins/showLabels zoom-threshold logic keeps working as-is.
+          const approxZoom = Math.log2(360 / region.longitudeDelta);
+          setViewState({
+            latitude: region.latitude,
+            longitude: region.longitude,
+            zoom: approxZoom,
+          });
+        }}
       >
-        <NavigationControl position="bottom-right" />
-        <GeolocateControl position="bottom-right" trackUserLocation showUserHeading />
-
-        {mapLoaded && heatmapGeoJson.features.length > 0 && (
-          <Source id="demand-data" type="geojson" data={heatmapGeoJson as any}>
-            <Layer
-              id="heatmap-layer"
-              type="heatmap"
-              paint={{
-                "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 50, 1],
-                "heatmap-color": [
-                  "interpolate", ["linear"], ["heatmap-density"],
-                  0,    "rgba(99,102,241,0)",
-                  0.15, "rgba(99,102,241,0.35)",
-                  0.35, "rgba(139,92,246,0.55)",
-                  0.6,  "rgba(236,72,153,0.70)",
-                  0.8,  "rgba(16,185,129,0.80)",
-                  1,    "rgb(16,185,129)",
-                ],
-                "heatmap-radius":  ["interpolate", ["linear"], ["zoom"], 0, 4, 9, 32, 12, 48],
-                "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 11, 0.85, 13, 0.15, 15, 0],
-              }}
-            />
-          </Source>
+        {heatmapPoints.length > 0 && (
+          <Heatmap
+            points={heatmapPoints}
+            radius={50}
+            opacity={0.7}
+            gradient={{
+              colors: ["#6366f1", "#8b5cf6", "#ec4899", "#10b981"],
+              startPoints: [0.15, 0.35, 0.6, 0.8],
+              colorMapSize: 256,
+            }}
+          />
         )}
 
         {showPins &&
           filteredJobs.map((job) => {
             if (!job.location?.lat || !job.location?.lng) return null;
-            const myBid  = alreadyBid(job);
-            const color  = myBid ? "#10b981" : getCategoryColor(job.subService ?? job.service);
+            const myBid = alreadyBid(job);
+            const color = myBid ? "#10b981" : getCategoryColor(job.subService ?? job.service);
             const budget = job.budget ?? job.customerInitialBid ?? 0;
             return (
               <Marker
                 key={job.id}
-                longitude={job.location.lng}
-                latitude={job.location.lat}
-                onClick={() => openJobSheet(job)}
-                style={{ cursor: "pointer" }}
+                coordinate={{
+                  latitude: job.location.lat,
+                  longitude: job.location.lng,
+                }}
+                onPress={() => openJobSheet(job)}
               >
                 <View style={[S.pin, { backgroundColor: color }]}>
                   {showLabels ? (
@@ -313,7 +311,7 @@ export default function DemandZonesWeb() {
               </Marker>
             );
           })}
-      </Map>
+      </MapView>
 
       {/* ══ FLOATING STATS CARD ══════════════════════════════════════════════ */}
       <Animated.View entering={FadeIn.delay(300)} style={S.statsCard}>
@@ -410,8 +408,8 @@ export default function DemandZonesWeb() {
 
             {/* ── REGULAR JOB SHEET ───────────────────────────────────── */}
             {selectedJob && (() => {
-              const myBid  = alreadyBid(selectedJob);
-              const color  = getCategoryColor(selectedJob.subService ?? selectedJob.service);
+              const myBid = alreadyBid(selectedJob);
+              const color = getCategoryColor(selectedJob.subService ?? selectedJob.service);
               const budget = selectedJob.budget ?? selectedJob.customerInitialBid ?? 0;
               return (
                 <>

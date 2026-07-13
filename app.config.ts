@@ -1,13 +1,12 @@
 import { ConfigContext, ExpoConfig } from "expo/config";
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
-  ...config, // This spreads existing static config if you have an app.json
-  name: "Foona",
-  slug: "Foona",
-  scheme: "Foona",
+  ...config,
+  name: "foona",
+  slug: "tydee",
+  scheme: "foona",
   version: "1.0.0",
 
-  // EAS EXPECTS THESE EXACTLY LIKE THIS:
   updates: {
     url: "https://u.expo.dev/cff17f73-4614-49ef-b229-bb58401bcc55",
   },
@@ -17,16 +16,28 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 
   platforms: ["ios", "android", "web"],
   ios: {
-    bundleIdentifier: "com.spearman.Foona",
+    bundleIdentifier: "com.spearman.foona", // Lowercase
     supportsTablet: true,
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
-    package: "com.spearman.Foona",
+    package: "com.spearman.foona", // Lowercase
   },
   plugins: [
     "expo-router",
+    "expo-build-properties",
+    "expo-font",
     "@react-native-community/datetimepicker",
     "expo-web-browser",
+    [
+      "@didit-protocol/sdk-react-native",
+      {
+        "iosNfcEnabled": false,
+        "androidNfcEnabled": false
+      }
+    ]
   ],
   extra: {
     eas: {

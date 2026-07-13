@@ -15,7 +15,7 @@ function RootLayoutNav() {
 
   // Prevents screen flickering while Firebase checks if the user is logged in
   if (loading) {
-    return null; 
+    return null;
   }
 
   return (

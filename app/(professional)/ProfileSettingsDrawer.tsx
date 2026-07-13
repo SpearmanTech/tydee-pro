@@ -291,11 +291,12 @@ export default function ProfileSettingsDrawer({ visible, onClose }: Props) {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+         <TouchableOpacity
             style={styles.card}
             onPress={() => {
               onClose();
-              router.push("/(professional)/Equipment/rental-management"); // Points to the Dashboard we just made
+              // 👇 Matches your exact folder tree perfectly
+              router.push("/(professional)/Equipment/rental-management");
             }}
           >
             <View style={styles.cardHeader}>

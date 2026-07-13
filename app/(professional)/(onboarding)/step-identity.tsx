@@ -1,9 +1,9 @@
-import { auth, db, storage, functions } from "@/firebase/firebase";
+import { auth, db, functions, storage } from "@/firebase/firebase";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { ArrowLeft, Camera, ShieldCheck } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -143,7 +143,8 @@ export default function StepIdentity() {
           "foona://"
         );
         if (result.type === "success") {
-          router.push("/step-clearance");
+          // Route native users to the exact same Webhook listener screen as Web users!
+          router.push("/professional/onboarding/verify-callback");
         } else {
           // User cancelled or browser closed — reset so they can retry
           setUploadStep("idle");

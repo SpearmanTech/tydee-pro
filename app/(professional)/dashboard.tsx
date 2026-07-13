@@ -445,9 +445,6 @@ export default function ProfessionalDashboard() {
               end={{ x: 1, y: 1 }}
               style={styles.pulseBanner}
             >
-              <View style={styles.pulseIconBox}>
-                <Activity color="#10b981" size={24} />
-              </View>
               <View style={styles.pulseTextContent}>
                 <Text style={styles.pulseTitle}>Foona Pulse</Text>
                 <Text style={styles.pulseSub}>View Live Demand Zones</Text>
